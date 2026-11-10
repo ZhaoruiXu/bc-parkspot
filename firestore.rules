@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isValidSavedLot(data) {
+      return data.lotId is string && data.lotId.size() > 0 && data.lotId.size() <= 100 &&
+             data.parkName is string && data.parkName.size() > 0 && data.parkName.size() <= 200 &&
+             data.lotName is string && data.lotName.size() > 0 && data.lotName.size() <= 200 &&
+             data.region is string && data.region.size() > 0 && data.region.size() <= 100 &&
+             (!('userNotes' in data) || (data.userNotes is string && data.userNotes.size() <= 500)) &&
+             data.savedAt is timestamp && data.savedAt <= request.time;
+    }
+
+    function isValidParkedVehicle(data) {
+      return data.parkName is string && data.parkName.size() > 0 && data.parkName.size() <= 200 &&
+             data.lotName is string && data.lotName.size() > 0 && data.lotName.size() <= 200 &&
+             data.latitude is number && data.latitude >= -90.0 && data.latitude <= 90.0 &&
+             data.longitude is number && data.longitude >= -180.0 && data.longitude <= 180.0 &&
+             (!('stallNumber' in data) || (data.stallNumber is string && data.stallNumber.size() <= 100)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+             (!('isExactGpsLocation' in data) || (data.isExactGpsLocation is bool)) &&
+             data.parkedAt is timestamp && data.parkedAt <= request.time;
+    }
+
+    function isValidCommunityReport(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.reporterName is string && data.reporterName.size() > 0 && data.reporterName.size() <= 100 &&
+             data.lotId is string && data.lotId.size() > 0 && data.lotId.size() <= 100 &&
+             data.parkName is string && data.parkName.size() > 0 && data.parkName.size() <= 200 &&
+             data.status in ['AVAILABLE', 'FILLING_FAST', 'FULL', 'CLOSED'] &&
+             data.comment is string && data.comment.trim().size() >= 3 && data.comment.size() <= 500 &&
+             (!('spotsEstimate' in data) || data.spotsEstimate == null || (data.spotsEstimate is int && data.spotsEstimate >= 0 && data.spotsEstimate <= 5000)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // Per-user saved parking lots
+    match /users/{userId}/savedLots/{lotId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidSavedLot(incoming());
+    }
+
+    // Per-user pinned vehicle location
+    match /users/{userId}/parkedVehicles/{vehicleId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidParkedVehicle(incoming());
+    }
+
+    // Community crowdsourced live reports
+    match /communityReports/{reportId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && incoming().userId == request.auth.uid && isValidCommunityReport(incoming());
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidCommunityReport(incoming());
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

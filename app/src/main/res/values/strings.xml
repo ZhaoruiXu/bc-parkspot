@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">BC ParkSpot</string>
+    <string name="tagline">BC Recreational Parking &amp; Live Availability</string>
+    <string name="search_placeholder">Search parks, trails, or regions…</string>
+    <string name="nearest_open_spot">Navigate to Nearest Open Spot</string>
+    <string name="status_available">Spots Available</string>
+    <string name="status_filling_fast">Filling Fast</string>
+    <string name="status_full">Lot Full</string>
+    <string name="status_closed">Gate Closed</string>
+    <string name="day_use_pass_required">Day-Use Pass Required</string>
+    <string name="day_use_pass_not_required">No Day-Use Pass Needed</string>
+    <string name="overflow_lot">Overflow Lot</string>
+    <string name="main_trailhead_lot">Main Trailhead</string>
+    <string name="directions">Get Directions</string>
+    <string name="save_offline">Save Offline</string>
+    <string name="my_parked_car">My Parked Car</string>
+    <string name="community_report">Report Lot Status</string>
+</resources>
