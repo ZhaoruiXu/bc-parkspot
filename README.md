@@ -6,6 +6,37 @@ An Android app that shows trailhead parking across British Columbia parks, combi
 The app is not on Google Play, and no live backend ships with this repository.
 Pass rules, lot details and busy-day tips can go out of date, so always confirm them with the park authority before you travel.
 
+## Preview
+
+<table>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/01-explore-list.png" width="250" alt="Browse 18 trailhead lots with live status"><br><sub>Browse 18 trailhead lots with live status</sub></td>
+    <td align="center" valign="top"><img src="docs/images/02-explore-map.png" width="250" alt="Or see them as pins on a map"><br><sub>Or see them as pins on a map</sub></td>
+    <td align="center" valign="top"><img src="docs/images/03-map-lot-card-gate-closed.png" width="250" alt="Tap a pin for gate and pass info"><br><sub>Tap a pin for gate and pass info</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/04-route-today-at-this-lot.png" width="250" alt="Today at this lot: gate hours and pass rule"><br><sub>Today at this lot: gate hours and pass rule</sub></td>
+    <td align="center" valign="top"><img src="docs/images/05-saved-car-pin.png" width="250" alt="Pin your car and find it offline"><br><sub>Pin your car and find it offline</sub></td>
+    <td align="center" valign="top"><img src="docs/images/06-passes-guide.png" width="250" alt="Which parks need a day-use pass"><br><sub>Which parks need a day-use pass</sub></td>
+  </tr>
+</table>
+
+<details>
+<summary>More screenshots</summary>
+
+<table>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/07-route-best-bet-start.png" width="250" alt="Let the app pick a best bet"><br><sub>Let the app pick a best bet</sub></td>
+    <td align="center" valign="top"><img src="docs/images/08-route-today-no-gate-hours.png" width="250" alt="A lot with no published gate hours"><br><sub>A lot with no published gate hours</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/images/09-map-search.png" width="250" alt="Search narrows the map"><br><sub>Search narrows the map</sub></td>
+    <td align="center" valign="top"><img src="docs/images/10-map-lot-card-pass-off-season.png" width="250" alt="Off-season: no pass needed"><br><sub>Off-season: no pass needed</sub></td>
+  </tr>
+</table>
+
+</details>
+
 ## Quick start
 
 You need Android Studio, or a JDK from version 17 to 21 with the Android SDK.
