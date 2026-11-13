@@ -5,18 +5,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DoNotDisturbOn
 import androidx.compose.material.icons.outlined.Groups
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.ConfirmationNumber
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockClock
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -51,16 +48,33 @@ fun outlookIcon(outlook: Outlook): ImageVector = when (outlook) {
     Outlook.SUMMER_BUSY -> Icons.Outlined.Groups
 }
 
+fun outlookTone(outlook: Outlook): FactTone = when (outlook) {
+    Outlook.PARK_CLOSED, Outlook.GATE_CLOSED -> FactTone.SHUT
+    Outlook.GATE_MAY_BE_CLOSED, Outlook.GATE_CLOSING_SOON, Outlook.ARRIVE_BY, Outlook.PASS_DAY, Outlook.SUMMER_BUSY ->
+        FactTone.HEADS_UP
+}
+
+/** Gate outlooks whose times the gate tile beside them already shows, so their detail line would only repeat it. */
+fun detailRepeatsGateTile(outlook: Outlook): Boolean =
+    outlook == Outlook.GATE_CLOSED || outlook == Outlook.GATE_MAY_BE_CLOSED || outlook == Outlook.GATE_CLOSING_SOON
+
 /**
- * What public sources say about a lot nobody has reported on. Always tagged as not a live report and
- * drawn in the informational tone, so it never looks like a hiker report. With [showSource], the row
- * ends with a link to its source.
+ * What public sources say about a lot nobody has reported on: a coloured badge, a short label and one detail line,
+ * tagged as public info so it never looks like a hiker report. With [showSource], the row ends with a link to its
+ * source.
  */
 @Composable
-fun PredictionRow(prediction: Prediction, modifier: Modifier = Modifier, showSource: Boolean = false) {
+fun PredictionRow(
+    prediction: Prediction,
+    modifier: Modifier = Modifier,
+    showSource: Boolean = false,
+    /** False when the row sits inside a block that already carries the public-info tag. */
+    showTag: Boolean = true,
+    showDetail: Boolean = true
+) {
     val resources = LocalContext.current.resources
     val locale = ConfigurationCompat.getLocales(LocalConfiguration.current)[0] ?: Locale.getDefault()
-    val tone = BCParkSpotColors.semantic.info
+    val tone = BCParkSpotColors.semantic.toneFor(outlookTone(prediction.outlook))
     Surface(
         shape = RoundedCornerShape(Sizes.messageCorner),
         color = tone.container,
@@ -69,44 +83,25 @@ fun PredictionRow(prediction: Prediction, modifier: Modifier = Modifier, showSou
             .testTag("lot_prediction")
             .semantics(mergeDescendants = true) {}
     ) {
-        Column(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Icon(
-                    imageVector = Icons.Outlined.History,
-                    contentDescription = null,
-                    tint = tone.onContainer,
-                    modifier = Modifier.size(Sizes.inlineIcon)
-                )
-                Text(
-                    text = stringResource(R.string.prediction_label),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = tone.onContainer
-                )
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
-            ) {
-                Icon(
-                    imageVector = outlookIcon(prediction.outlook),
-                    contentDescription = null,
-                    tint = tone.onContainer,
-                    modifier = Modifier.size(Sizes.inlineIcon)
-                )
+        Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                IconBadge(outlookIcon(prediction.outlook), tone)
                 Text(
                     text = outlookLabel(resources, prediction.outlook),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
                     color = tone.onContainer,
                     modifier = Modifier.weight(1f)
                 )
+                if (showTag) PublicInfoTag()
             }
-            Text(
-                text = patternDetail(resources, prediction, locale),
-                style = MaterialTheme.typography.bodySmall,
-                color = tone.onContainer
-            )
+            if (showDetail) {
+                Text(
+                    text = patternDetail(resources, prediction, locale),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = tone.onContainer
+                )
+            }
             val sourceUrl = prediction.sourceUrl
             if (showSource && sourceUrl != null) {
                 val uriHandler = LocalUriHandler.current

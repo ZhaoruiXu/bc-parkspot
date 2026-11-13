@@ -43,7 +43,8 @@ class ParkingRepository(
         return baseLots.map { lot ->
             lot.copy(
                 crowd = crowdSummaryFor(shared[lot.id].orEmpty(), nowMs, policy),
-                prediction = lot.predictionAt(bcNow)
+                prediction = lot.predictionAt(bcNow),
+                today = lot.todayAt(bcNow)
             )
         }
     }

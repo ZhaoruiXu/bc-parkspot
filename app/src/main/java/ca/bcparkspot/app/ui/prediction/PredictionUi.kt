@@ -10,7 +10,9 @@ import ca.bcparkspot.app.domain.Prediction
 import ca.bcparkspot.app.ui.text.stateHeadline
 import java.net.URI
 import java.time.LocalTime
+import java.time.chrono.IsoChronology
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeFormatterBuilder
 import java.time.format.FormatStyle
 import java.util.Locale
 
@@ -29,6 +31,17 @@ fun outlookLabel(res: Resources, outlook: Outlook): String = res.getString(outlo
 
 fun formatClockTime(time: LocalTime, locale: Locale): String =
     time.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale))
+
+/** Like [formatClockTime], but a whole hour on a 12-hour clock drops its minutes ("8 AM"), so ranges fit a tile. */
+fun formatCompactClockTime(time: LocalTime, locale: Locale): String {
+    val pattern = DateTimeFormatterBuilder.getLocalizedDateTimePattern(null, FormatStyle.SHORT, IsoChronology.INSTANCE, locale)
+    val twelveHour = pattern.contains(AM_PM_FIELD)
+    if (!twelveHour || time.minute != 0) return formatClockTime(time, locale)
+    return time.format(DateTimeFormatter.ofPattern(pattern.replace(MINUTES_FIELD, ""), locale))
+}
+
+private const val AM_PM_FIELD = 'a'
+private const val MINUTES_FIELD = ":mm"
 
 /** The detail line's string and the clock time it is formatted with, if any. */
 data class DetailText(@StringRes val res: Int, val time: LocalTime? = null)

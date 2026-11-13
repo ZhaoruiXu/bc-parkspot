@@ -25,6 +25,10 @@ object Sizes {
     val brandMarkCorner = 8.dp
     val sheetCorner = 16.dp
     val messageCorner = 12.dp
+    /** A filled circle behind a small icon, so status reads at a glance. */
+    val iconBadge = 28.dp
+    /** The thinnest visible outline. */
+    val hairline = 1.dp
     val progressStroke = 3.dp
     val progressIndicator = 24.dp
 }

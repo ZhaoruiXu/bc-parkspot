@@ -2,6 +2,7 @@ package ca.bcparkspot.app.model
 
 import ca.bcparkspot.app.domain.BC_TIME_ZONE
 import ca.bcparkspot.app.domain.Prediction
+import ca.bcparkspot.app.domain.TodayAtLot
 
 import ca.bcparkspot.app.domain.LotState
 import ca.bcparkspot.app.domain.confirmedStatus
@@ -197,7 +198,9 @@ data class ParkingLot(
     val verifiedAt: String? = null,
     val crowd: CrowdSummary = CrowdSummary.NONE,
     /** What public sources and park rules say about the lot now; shown only while no hiker has reported on it. */
-    val prediction: Prediction? = null
+    val prediction: Prediction? = null,
+    /** Published gate and pass facts for now, refreshed with [prediction]. */
+    val today: TodayAtLot? = null
 ) {
     val effectiveStatus: AvailabilityStatus
         get() = crowd.state.confirmedStatus

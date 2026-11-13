@@ -21,5 +21,7 @@ debug.keystore.base64
 .build-outputs/
 /public/
 
-# Firebase client config for this machine; never committed
+# Firebase client config for this machine; never committed. Debug builds read src/debug/ (the dev project),
+# release builds read app/ (the production project).
 app/google-services.json
+app/src/*/google-services.json

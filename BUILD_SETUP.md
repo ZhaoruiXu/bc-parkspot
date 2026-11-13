@@ -106,7 +106,7 @@ It is written to `app/build/outputs/apk/debug/app-debug.apk`.
 5. On a lot's detail page, tap the bookmark icon at the top right.
    The lot appears under **Saved**, and it stays there after you close and reopen the app.
 6. On the same page, look at the report status.
-   With no recent reports, a lot that public sources or park rules say something about shows it, tagged **Public info, not a live report**. Lines taken from a web page link to it; closures, gate hours and pass days come from the lot details in the app and carry no link.
+   With no recent reports, a lot that public sources or park rules say something about shows it, tagged **Public info**, and the directions to it show a **Today at this lot** card. Lines taken from a web page link to it; closures, gate hours and pass days come from the lot details in the app and carry no link.
    Which line appears depends on the date and time in BC: a gated lot at night shows its gate line, as does one whose gate closes within an hour, while pass days and the summer lines need their season, so outside it you would change the device date to see them.
 7. Tap **Get Directions**.
    The **Route** tab shows the trip with the lot's report status and public info, and **Pin My Car Location Here (Offline)** saves where you parked.
@@ -197,6 +197,9 @@ This turns on guest accounts, Google Sign-In, sync and shared community reports.
    ```
 
 6. Rebuild and run the app.
+
+To keep testing out of your live data, add a second project for development the same way, register the package name `ca.bcparkspot.app.debug` there, and save its config as `app/src/debug/google-services.json`.
+Debug builds then install as a separate app that talks to the development project, while release builds keep using `app/google-services.json`.
 
 ## 8. Firestore rule tests (optional)
 

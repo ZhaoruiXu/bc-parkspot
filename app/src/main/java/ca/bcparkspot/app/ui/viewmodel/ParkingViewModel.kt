@@ -55,6 +55,8 @@ data class ParkingUiState(
     val selectedLot: ParkingLot? = null,
     val activeNavigationRoute: NavigationRoute? = null,
     val isReportingDialogVisible: Boolean = false,
+    /** The lot the report dialog is for when opened from somewhere other than its detail screen. */
+    val reportingLotId: String? = null,
     val isSaveCarSheetVisible: Boolean = false,
     val isAuthDialogVisible: Boolean = false,
     val accountMessage: String? = null,
@@ -330,8 +332,8 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun showCommunityReportDialog(visible: Boolean) {
-        _uiState.update { it.copy(isReportingDialogVisible = visible) }
+    fun showCommunityReportDialog(visible: Boolean, lotId: String? = null) {
+        _uiState.update { it.copy(isReportingDialogVisible = visible, reportingLotId = lotId.takeIf { visible }) }
     }
 
     fun showSaveCarSheet(visible: Boolean) {
@@ -379,7 +381,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                 )
             )
             graph.syncControl.request()
-            _uiState.update { it.copy(isReportingDialogVisible = false, userNotification = res.getString(R.string.report_saved)) }
+            _uiState.update { it.copy(isReportingDialogVisible = false, reportingLotId = null, userNotification = res.getString(R.string.report_saved)) }
         }
     }
 

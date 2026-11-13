@@ -8,6 +8,9 @@ plugins {
   alias(libs.plugins.google.services)
 }
 
+/** How google-services.json marks a web OAuth client, which Google sign-in needs. */
+val WEB_OAUTH_CLIENT_MARKER = "\"client_type\": 3"
+
 android {
   namespace = "ca.bcparkspot.app"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -57,6 +60,15 @@ android {
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
+      // With a dev Firebase config in src/debug, debug builds are a separate app on the device that talks to the dev
+      // project, so testing never writes to production.
+      val devGoogleServices = file("src/debug/google-services.json")
+      if (devGoogleServices.exists()) {
+        applicationIdSuffix = ".debug"
+        if (!devGoogleServices.readText().contains(WEB_OAUTH_CLIENT_MARKER)) {
+          resValue("string", "default_web_client_id", "placeholder_default_web_client_id")
+        }
+      }
       val customDebugKeystore = file("${rootDir}/debug.keystore")
       signingConfig = if (customDebugKeystore.exists()) {
         signingConfigs.getByName("debugConfig")

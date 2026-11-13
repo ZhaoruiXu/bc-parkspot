@@ -149,6 +149,16 @@ class PredictionTest {
     }
 
     @Test
+    fun `today's gate says what the operator publishes for that day`() {
+        assertEquals(GateToday.NoHoursPublished, (null as GateHours?).today(summerTuesday))
+        assertEquals(GateToday.Hours(opens, closes), gate.today(summerTuesday))
+        assertEquals(GateToday.OpenAllDay, seasonalGate.today(summerTuesday))
+        assertEquals(GateToday.ClosesAsEarlyAs(opens, winterEarly), GateHours.daily(opens, CLOSING_TIME_NOT_PUBLISHED, winterEarly).today(summerTuesday))
+        val snow = GateHours(listOf(GateSeason(MonthDay.of(Month.JANUARY, 1), null, closedAllDay = true)))
+        assertEquals(GateToday.ClosedAllDay, snow.today(winterTuesday))
+    }
+
+    @Test
     fun `BC local time is read in BC wherever the phone is`() {
         val bcMorning = ZonedDateTime.of(summerSaturday, arriveBy, BC_TIME_ZONE)
         assertEquals(bcMorning.toLocalDateTime(), bcLocalTime(bcMorning.toInstant().toEpochMilli()))

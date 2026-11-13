@@ -2,6 +2,7 @@ package ca.bcparkspot.app.data.repository
 
 import ca.bcparkspot.app.domain.BC_TIME_ZONE
 import ca.bcparkspot.app.domain.BLOCKING_OUTLOOKS
+import ca.bcparkspot.app.domain.GateToday
 import ca.bcparkspot.app.domain.NearestResult
 import ca.bcparkspot.app.domain.Outlook
 import ca.bcparkspot.app.domain.ReportPolicies
@@ -9,6 +10,7 @@ import ca.bcparkspot.app.model.ParkingLot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -52,6 +54,20 @@ class ParkingRepositoryNearestTest {
             val arrival = now.plusMinutes(BCParksDataSource.estimateDriveMinutes(origin, picked).toLong())
             assertFalse(now.toString(), picked.predictionAt(arrival)?.outlook in BLOCKING_OUTLOOKS)
         }
+    }
+
+    @Test
+    fun `every lot carries today's published gate and pass facts`() {
+        val now = LocalDateTime.of(winterWeeknight, LocalTime.NOON)
+        val repo = ParkingRepository(ReportPolicies.DEFAULT) { bcMs(now) }
+        val byId = repo.parkingLots.value.associateBy { it.id }
+        assertEquals(GateToday.ClosesAsEarlyAs(LocalTime.of(7, 0), LocalTime.of(18, 0)), byId.getValue("lynn_canyon_park").today?.gate)
+        assertEquals(GateToday.NoHoursPublished, byId.getValue("joffre_lakes_main").today?.gate)
+        assertEquals(GateToday.Hours(LocalTime.of(8, 0), LocalTime.of(16, 30)), byId.getValue("buntzen_lake_main").today?.gate)
+        assertTrue(byId.values.all { it.today != null })
+        assertTrue("noon in November: Buntzen is open", byId.getValue("buntzen_lake_main").today!!.gateOpenNow)
+        val evening = ParkingRepository(ReportPolicies.DEFAULT) { bcMs(LocalDateTime.of(winterWeeknight, LocalTime.of(22, 0))) }
+        assertFalse("10 pm in November: Buntzen is shut", evening.parkingLots.value.first { it.id == "buntzen_lake_main" }.today!!.gateOpenNow)
     }
 
     @Test

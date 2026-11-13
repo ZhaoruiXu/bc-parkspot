@@ -31,7 +31,7 @@ import ca.bcparkspot.app.ui.theme.stateTone
 
 /** A lot's crowd-report status, followed by its labelled prediction while nobody has reported on it. */
 @Composable
-fun LotStatusBlock(lot: ParkingLot, modifier: Modifier = Modifier) {
+fun LotStatusBlock(lot: ParkingLot, modifier: Modifier = Modifier, showPrediction: Boolean = true) {
     val resources = LocalContext.current.resources
     val tone = stateTone(lot.crowd.state, BCParkSpotColors.semantic)
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -60,7 +60,7 @@ fun LotStatusBlock(lot: ParkingLot, modifier: Modifier = Modifier) {
             }
         }
         val prediction = lot.prediction
-        if (prediction != null && lot.crowd.state == LotState.NoRecentReports) {
+        if (showPrediction && prediction != null && lot.crowd.state == LotState.NoRecentReports) {
             PredictionRow(prediction)
         }
     }

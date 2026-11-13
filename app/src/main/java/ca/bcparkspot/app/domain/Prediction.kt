@@ -1,5 +1,6 @@
 package ca.bcparkspot.app.domain
 
+import ca.bcparkspot.app.model.PassRequirementStatus
 import java.time.DayOfWeek
 import java.time.Duration
 import java.time.Instant
@@ -101,6 +102,37 @@ fun GateHours?.closingSoonAt(at: LocalDateTime): LocalTime? {
 fun GateHours?.mayBeClosedAt(at: LocalDateTime): Boolean {
     val earliest = this?.earliestClose ?: return false
     return isOpenAt(at) && at.toLocalTime() >= earliest
+}
+
+/** What a lot's gate does on one day, as its operator publishes it. */
+sealed interface GateToday {
+    /** The operator publishes no gate hours, so the app claims none. */
+    data object NoHoursPublished : GateToday
+    data object OpenAllDay : GateToday
+    data object ClosedAllDay : GateToday
+    data class Hours(val opens: LocalTime, val closes: LocalTime) : GateToday
+    /** The latest closing time is not published; the gate can close as early as [earliestClose]. */
+    data class ClosesAsEarlyAs(val opens: LocalTime, val earliestClose: LocalTime) : GateToday
+}
+
+/** The published facts a first visitor can rely on before anyone has reported on a lot. */
+data class TodayAtLot(
+    val gate: GateToday,
+    val pass: PassRequirementStatus,
+    /** Whether the gate is open by its usual hours at that moment, and not past its earliest stated close. */
+    val gateOpenNow: Boolean
+)
+
+fun GateHours?.today(date: LocalDate): GateToday {
+    if (this == null) return GateToday.NoHoursPublished
+    val season = seasonOn(date)
+    val hours = season.hours
+    return when {
+        season.closedAllDay -> GateToday.ClosedAllDay
+        hours == null -> GateToday.OpenAllDay
+        earliestClose != null -> GateToday.ClosesAsEarlyAs(hours.opens, earliestClose)
+        else -> GateToday.Hours(hours.opens, hours.closes)
+    }
 }
 
 /** Everything the app knows about a lot at one moment, apart from hiker reports. */

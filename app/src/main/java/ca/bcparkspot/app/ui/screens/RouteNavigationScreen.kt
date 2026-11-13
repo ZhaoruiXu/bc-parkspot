@@ -1,5 +1,7 @@
 package ca.bcparkspot.app.ui.screens
 
+import ca.bcparkspot.app.domain.LotState
+import ca.bcparkspot.app.ui.prediction.TodayAtLotCard
 import ca.bcparkspot.app.domain.isConfirmedOpen
 import androidx.compose.ui.res.stringResource
 import ca.bcparkspot.app.R
@@ -43,6 +45,7 @@ fun RouteNavigationScreen(
     onBack: () -> Unit,
     onSelectAlternativeLot: (ParkingLot) -> Unit,
     onOpenSaveCarSheet: () -> Unit,
+    onReport: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     BackHandler(onBack = onBack)
@@ -124,7 +127,13 @@ fun RouteNavigationScreen(
                             )
                             Spacer(modifier = Modifier.height(Spacing.sm))
                         }
-                        LotStatusBlock(destinationNow)
+                        val today = destinationNow.today
+                        val unreported = destinationNow.crowd.state == LotState.NoRecentReports
+                        LotStatusBlock(destinationNow, showPrediction = today == null || !unreported)
+                        if (today != null && unreported) {
+                            Spacer(modifier = Modifier.height(Spacing.md))
+                            TodayAtLotCard(today, destinationNow.prediction, onReport = onReport)
+                        }
                         Spacer(modifier = Modifier.height(Spacing.md))
 
                         // Distance & Travel Stats

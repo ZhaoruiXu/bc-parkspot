@@ -240,7 +240,8 @@ fun MainAppRoot(
                             },
                             onOpenSaveCarSheet = {
                                 viewModel.showSaveCarSheet(true)
-                            }
+                            },
+                            onReport = { viewModel.showCommunityReportDialog(true, activeRoute.destinationLot.id) }
                         )
                     } else {
                         // Empty Route placeholder
@@ -342,7 +343,8 @@ fun MainAppRoot(
 
             // Reporting Dialog
             if (uiState.isReportingDialogVisible) {
-                val currentLot = uiState.selectedLot ?: allLots.first()
+                val currentLot = uiState.reportingLotId?.let { id -> allLots.firstOrNull { it.id == id } }
+                    ?: uiState.selectedLot ?: allLots.first()
                 CommunityReportDialog(
                     lot = currentLot,
                     onDismiss = { viewModel.showCommunityReportDialog(false) },
