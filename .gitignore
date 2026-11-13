@@ -20,4 +20,6 @@ debug.keystore.base64
 *-debug.log
 .build-outputs/
 /public/
+
+# Firebase client config for this machine; never committed
 app/google-services.json

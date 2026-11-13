@@ -13,7 +13,7 @@ import org.maplibre.android.MapLibre
  * 2. Ensures FirebaseApp is safely initialized with fallback configuration if google-services.json
  *    is absent on clean clones or offline devices, preventing uncaught IllegalStateException.
  */
-class BCParkSpotApplication : Application() {
+open class BCParkSpotApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
@@ -45,5 +45,7 @@ class BCParkSpotApplication : Application() {
         } catch (e: Throwable) {
             Log.w("BCParkSpotApp", "Firebase initialization guard: ${e.message}")
         }
+
+        AppGraph.from(this)
     }
 }

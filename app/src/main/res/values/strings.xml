@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">BC ParkSpot</string>
-    <string name="tagline">BC Recreational Parking &amp; Live Availability</string>
+    <string name="tagline">BC trailhead parking from hiker reports</string>
     <string name="search_placeholder">Search parks, trails, or regions…</string>
     <string name="nearest_open_spot">Navigate to Nearest Open Spot</string>
     <string name="status_available">Spots Available</string>
@@ -15,4 +15,154 @@
     <string name="save_offline">Save Offline</string>
     <string name="my_parked_car">My Parked Car</string>
     <string name="community_report">Report Lot Status</string>
+
+    <plurals name="people_count">
+        <item quantity="one">%d person</item>
+        <item quantity="other">%d people</item>
+    </plurals>
+    <plurals name="hours_count">
+        <item quantity="one">%d hour</item>
+        <item quantity="other">%d hours</item>
+    </plurals>
+    <plurals name="age_minutes">
+        <item quantity="one">%d min ago</item>
+        <item quantity="other">%d min ago</item>
+    </plurals>
+    <plurals name="age_hours">
+        <item quantity="one">%d hour ago</item>
+        <item quantity="other">%d hours ago</item>
+    </plurals>
+    <plurals name="state_unconfirmed">
+        <item quantity="one">%1$d report, not confirmed: %2$s</item>
+        <item quantity="other">%1$d reports, not confirmed: %2$s</item>
+    </plurals>
+    <plurals name="reporters_summary">
+        <item quantity="one">%1$d person reported, newest %2$s</item>
+        <item quantity="other">%1$d people reported, newest %2$s</item>
+    </plurals>
+    <string name="age_just_now">just now</string>
+    <string name="state_confirmed">Hikers report: %1$s</string>
+    <string name="state_mixed">Mixed reports, latest: %1$s</string>
+    <string name="state_no_recent">No recent reports</string>
+    <string name="state_no_recent_detail">No crowd reports in the last %1$s</string>
+    <string name="nearest_found">Nearest confirmed open spot: %1$s, by estimated drive time from %2$s.</string>
+    <string name="nearest_none_confirmed">No confirmed open spots. A lot counts as open when at least %1$s report it open within %2$s, they outnumber full or closed reports, and no newer report says full or closed.</string>
+    <string name="nearest_fallback">Closest option: %1$s (%2$s), by estimated drive time from %3$s.</string>
+    <string name="outlook_park_closed">Park closed today</string>
+    <string name="outlook_gate_closed">Gate usually closed now</string>
+    <string name="outlook_gate_may_be_closed">Gate may be closed now</string>
+    <string name="outlook_gate_closing_soon">Gate closes soon</string>
+    <string name="outlook_arrive_by">Busy summer weekend</string>
+    <string name="outlook_pass_day">Day-use pass day</string>
+    <string name="outlook_summer_busy">Busy summer season</string>
+    <string name="pattern_park_closed">A park closure is listed for today</string>
+    <string name="pattern_gate_opens">Gate usually opens at %1$s</string>
+    <string name="pattern_gate_closing_soon">The gate can close at %1$s, leaving little time to park and hike</string>
+    <string name="pattern_gate_closed_all_day">The gate is usually closed all day at this time of year</string>
+    <string name="pattern_gate_may_be_closed">Its closing time changes through the year; it can close as early as %1$s</string>
+    <string name="pattern_arrive_by">Vancouver Trails says to arrive by %1$s on summer weekends, before lots fill</string>
+    <string name="pattern_pass_day">A day-use pass is required to park here today</string>
+    <string name="pattern_summer_busy">A 2022 local news report describes parking trouble here in the busy summer season</string>
+    <string name="prediction_source">Source: %1$s</string>
+    <string name="prediction_label">Public info, not a live report</string>
+    <string name="route_not_confirmed">Not confirmed open. Check the status before you rely on it.</string>
+    <string name="status_not_confirmed">Not confirmed</string>
+    <string name="prediction_explainer">From public sources and park rules, not a live report. A hiker report replaces it as soon as one comes in.</string>
+    <string name="nearest_nothing">No lot can be suggested right now: lots with recent reports are full, closed or mixed, and the rest have a listed closure, or a gate that is or may be shut, or closes within an hour, when you would arrive.</string>
+
+    <string name="account_linked">Signed in with Google. Your data now syncs to your account.</string>
+    <plurals name="account_merged">
+        <item quantity="one">Signed in. %d item from this phone was added to your account.</item>
+        <item quantity="other">Signed in. %d items from this phone were added to your account.</item>
+    </plurals>
+    <string name="account_server_unreachable">Couldn\'t reach the server. Nothing was changed; try again.</string>
+    <string name="account_move_failed">Couldn\'t move your items to that account. You are still a guest and nothing was lost.</string>
+    <string name="account_sign_in_failed_kept">Couldn\'t sign in. Your items are kept on this phone.</string>
+    <string name="account_failed">That didn\'t work. Nothing was changed; try again.</string>
+    <string name="account_signed_out">Signed out. You are now using BC ParkSpot as a guest.</string>
+    <plurals name="account_signed_out_kept">
+        <item quantity="one">Signed out. %d change stays on this phone and syncs the next time you sign in with that account.</item>
+        <item quantity="other">Signed out. %d changes stay on this phone and sync the next time you sign in with that account.</item>
+    </plurals>
+    <string name="account_deleted">Your data is deleted.</string>
+    <string name="account_delete_incomplete">Deleting your data didn\'t finish. Try again.</string>
+    <string name="account_removal_failed">Your data is deleted. Removing the account failed; try again.</string>
+    <string name="google_no_account">Google couldn\'t offer an account to sign in with. Check that a Google account is added in Settings and Google Play services is up to date, then try again.</string>
+    <string name="google_not_configured">Google sign-in isn\'t set up in this build.</string>
+    <string name="account_busy_signing_in">Signing in…</string>
+    <string name="account_busy_signing_out">Signing out…</string>
+    <string name="account_busy_deleting">Deleting your data…</string>
+    <string name="account_title">Your account</string>
+    <string name="theme_title">Appearance</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="account_guest">Guest on this device</string>
+    <string name="account_guest_detail">Everything you save is kept on this phone and backed up to a private guest account.</string>
+    <string name="account_sign_in_cta">Sign in with Google to keep your data across devices</string>
+    <string name="account_offline_sign_in">Connect to the internet to sign in</string>
+    <string name="account_offline_sign_out">Connect to the internet to sign out</string>
+    <string name="account_offline_delete">Connect to the internet to delete your data</string>
+    <string name="account_sign_out">Sign out</string>
+    <string name="account_delete">Delete my data</string>
+    <string name="account_retry_delete">Finish deleting my data</string>
+    <string name="account_all_synced">Everything is synced</string>
+    <plurals name="account_pending">
+        <item quantity="one">%d change waiting to sync</item>
+        <item quantity="other">%d changes waiting to sync</item>
+    </plurals>
+    <plurals name="account_not_synced">
+        <item quantity="one">%d item couldn\'t sync</item>
+        <item quantity="other">%d items couldn\'t sync</item>
+    </plurals>
+    <plurals name="account_rejected_reports">
+        <item quantity="one">%d report couldn\'t be shared</item>
+        <item quantity="other">%d reports couldn\'t be shared</item>
+    </plurals>
+    <string name="account_last_sync">Last synced %1$s</string>
+    <string name="account_never_synced">Not synced yet</string>
+    <string name="account_retry">Retry</string>
+    <string name="account_discard">Discard</string>
+    <string name="account_close">Close</string>
+    <string name="account_cancel">Cancel</string>
+    <string name="account_privacy">Privacy policy</string>
+    <plurals name="account_confirm_merge">
+        <item quantity="one">Add this phone\'s %d item to your Google account?</item>
+        <item quantity="other">Add this phone\'s %d items to your Google account?</item>
+    </plurals>
+    <string name="account_confirm_merge_add">Add</string>
+    <plurals name="account_confirm_sign_out">
+        <item quantity="one">%1$d change has not synced yet. It stays on this phone and syncs the next time you sign in with this account. Reports older than %2$s by then can no longer be shared.</item>
+        <item quantity="other">%1$d changes have not synced yet. They stay on this phone and sync the next time you sign in with this account. Reports older than %2$s by then can no longer be shared.</item>
+    </plurals>
+    <string name="account_confirm_delete_title">Delete your data?</string>
+    <string name="account_confirm_delete_body">This deletes your saved lots, car pin and reports from this phone and from the cloud, and removes your account. It can\'t be undone.</string>
+    <string name="account_confirm_delete">Delete</string>
+    <string name="report_waiting_to_sync">Your report, waiting to sync</string>
+    <string name="feed_live">Live reports are up to date</string>
+    <string name="feed_loading">Loading live reports</string>
+    <string name="feed_paused">Live reports paused for today</string>
+    <string name="feed_stale">Live reports unavailable. Showing reports loaded %1$s.</string>
+    <string name="feed_never">No reports loaded yet</string>
+    <string name="report_saved">Report saved. It will be shared as soon as possible.</string>
+    <string name="lot_saved">Saved</string>
+    <string name="lot_unsaved">Removed from saved</string>
+    <string name="car_cleared">Car pin cleared</string>
+    <string name="car_saved_gps">Car pinned at your phone\'s location</string>
+    <string name="car_saved_lot_pin">Car pinned at the lot. Your exact location wasn\'t available.</string>
+    <string name="default_reporter_name">BC Hiker</string>
+    <string name="car_stall_too_long">A stall number can be at most %1$d characters.</string>
+    <string name="car_notes_too_long">Notes can be at most %1$d characters.</string>
+    <string name="report_comment_length">A comment needs %1$d to %2$d characters.</string>
+    <string name="hero_headline">Get the spot. Get the summit.</string>
+    <string name="hero_subline">Hiker reports, pass days and trail-guide tips for BC\'s busiest trailheads.</string>
+    <string name="find_best_title">Find my best bet</string>
+    <string name="find_best_subtitle">Hiker reports first, then gate hours and busy-day tips</string>
+    <string name="route_empty_title">Where are we hiking today?</string>
+    <string name="route_empty_body">Pick a trailhead, or let BC ParkSpot suggest a best bet: hiker reports first, then lots nobody has reported on, skipping any lot with a listed closure or a gate usually shut when you would arrive.</string>
+    <string name="route_empty_button">Find my best bet</string>
+    <plurals name="lots_count">
+        <item quantity="one">%1$d trailhead</item>
+        <item quantity="other">%1$d trailheads</item>
+    </plurals>
 </resources>

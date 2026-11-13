@@ -1,5 +1,7 @@
 package ca.bcparkspot.app.ui.components
 
+import ca.bcparkspot.app.ui.theme.Alpha
+import ca.bcparkspot.app.ui.theme.BCParkSpotColors
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -105,7 +107,7 @@ fun SaveCarSheet(
             ) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = Alpha.HALF),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
@@ -139,12 +141,12 @@ fun SaveCarSheet(
                                     imageVector = Icons.Default.MyLocation,
                                     contentDescription = null,
                                     modifier = Modifier.size(14.dp),
-                                    tint = if (isAccurate) Color(0xFF047857) else Color(0xFFB45309)
+                                    tint = if (isAccurate) BCParkSpotColors.semantic.positive.accent else BCParkSpotColors.semantic.caution.accent
                                 )
                                 Text(
                                     text = "$gpsLabel: ${String.format("%.4f", loc.latitude)}, ${String.format("%.4f", loc.longitude)}",
                                     fontSize = ParkingMapConstants.SAVE_CAR_CAPTION_FONT_SIZE,
-                                    color = if (isAccurate) Color(0xFF047857) else Color(0xFFB45309),
+                                    color = if (isAccurate) BCParkSpotColors.semantic.positive.accent else BCParkSpotColors.semantic.caution.accent,
                                     fontWeight = FontWeight.Bold
                                 )
                             }

@@ -3,8 +3,11 @@ package ca.bcparkspot.app
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import ca.bcparkspot.app.data.repository.BCParksDataSource
+import ca.bcparkspot.app.domain.Outlook
+import ca.bcparkspot.app.domain.Prediction
 import ca.bcparkspot.app.model.AvailabilityStatus
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -41,6 +44,18 @@ class AppDataTest {
         assertNotNull(route)
         assertTrue(route.roadConditions.isNotBlank())
         assertTrue(route.estimatedMinutes > 0)
+    }
+
+    @Test
+    fun `backup lots never include a lot that is closed or behind a shut gate`() {
+        val lots = BCParksDataSource.getInitialParkingLots()
+        val origin = BCParksDataSource.sampleUserLocations[0]
+        val destination = lots.first { it.id == "seymour_lower_p1" }
+        val blocked = lots.first { it.id == "seymour_lower_p5" }
+        val shut = Prediction(Outlook.GATE_CLOSED, null)
+        val withBlocked = lots.map { if (it.id == blocked.id) it.copy(prediction = shut) else it }
+        assertTrue(BCParksDataSource.generateRoute(origin, destination, lots).alternativeLots.any { it.id == blocked.id })
+        assertFalse(BCParksDataSource.generateRoute(origin, destination, withBlocked).alternativeLots.any { it.id == blocked.id })
     }
 
     @Test

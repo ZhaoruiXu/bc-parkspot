@@ -1,23 +1,46 @@
 package ca.bcparkspot.app.ui.viewmodel
 
+import ca.bcparkspot.app.ui.prediction.fallbackStatus
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import ca.bcparkspot.app.data.local.AppDatabase
+import ca.bcparkspot.app.AppGraph
+import ca.bcparkspot.app.auth.AccountBusy
+import ca.bcparkspot.app.auth.AccountOutcome
+import ca.bcparkspot.app.auth.GoogleTokenResult
+import ca.bcparkspot.app.data.local.entity.OwnReportEntity
 import ca.bcparkspot.app.data.local.entity.ParkedCarEntity
+import ca.bcparkspot.app.data.local.entity.ReportSyncState
 import ca.bcparkspot.app.data.local.entity.SavedLotEntity
+import ca.bcparkspot.app.data.remote.CarPinProblem
+import ca.bcparkspot.app.data.remote.CloudLimits
+import ca.bcparkspot.app.data.remote.carPinProblem
+import ca.bcparkspot.app.data.remote.isValidReportComment
 import ca.bcparkspot.app.data.repository.BCParksDataSource
-import ca.bcparkspot.app.data.repository.FirestoreParkingRepository
 import ca.bcparkspot.app.data.repository.ParkingRepository
+import ca.bcparkspot.app.sync.FeedStatus
+import ca.bcparkspot.app.ui.account.AccountPrompt
+import ca.bcparkspot.app.ui.account.AccountUiState
+import ca.bcparkspot.app.ui.account.busyMessage
+import ca.bcparkspot.app.ui.account.feedMessage
+import ca.bcparkspot.app.ui.account.outcomeMessage
+import ca.bcparkspot.app.ui.account.tokenMessage
+import ca.bcparkspot.app.ui.account.toCommunityReport
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import java.util.UUID
+import java.util.concurrent.TimeUnit
 import ca.bcparkspot.app.model.*
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
-import kotlinx.coroutines.Job
+import ca.bcparkspot.app.R
+import ca.bcparkspot.app.domain.NearestResult
+import ca.bcparkspot.app.domain.ReportPolicies
+import ca.bcparkspot.app.ui.text.noConfirmedMessage
+import ca.bcparkspot.app.ui.text.stateHeadline
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import ca.bcparkspot.app.ui.screens.ExploreViewMode
 
 data class ParkingUiState(
@@ -34,6 +57,7 @@ data class ParkingUiState(
     val isReportingDialogVisible: Boolean = false,
     val isSaveCarSheetVisible: Boolean = false,
     val isAuthDialogVisible: Boolean = false,
+    val accountMessage: String? = null,
     val isPrivacyDialogVisible: Boolean = false,
     val isDisclaimerVisible: Boolean = false,
     val isRefreshing: Boolean = false,
@@ -42,170 +66,121 @@ data class ParkingUiState(
     val selectedMapLot: ParkingLot? = null
 )
 
+private const val LOG_TAG = "BCParkSpotAccount"
+
+object ViewModelTiming {
+    const val STATUS_REFRESH_SECONDS = 60L
+    val statusRefreshMs: Long = TimeUnit.SECONDS.toMillis(STATUS_REFRESH_SECONDS)
+    const val SUBSCRIPTION_KEEPALIVE_MS = 5_000L
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
 class ParkingViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val database = AppDatabase.getDatabase(application)
-    internal val localRepository = ParkingRepository(database.parkingDao())
-    private val firestoreRepository: FirestoreParkingRepository? = try {
-        FirestoreParkingRepository(application)
-    } catch (e: Throwable) {
-        null
-    }
-    private val auth: FirebaseAuth? = try {
-        FirebaseAuth.getInstance()
-    } catch (e: Throwable) {
-        null
-    }
+    private val graph = AppGraph.from(application)
+    private val local = graph.local
+    private val accounts = graph.accounts
+    private val res get() = getApplication<Application>().resources
+    val policy = graph.policy
+    internal val localRepository = ParkingRepository(graph.policy, graph.clock)
 
     fun updateCommunityReportsForTesting(reports: List<CommunityReport>) {
-        localRepository.updateCommunityReports(reports)
+        testReports.value = reports
     }
 
     private val _uiState = MutableStateFlow(ParkingUiState())
     val uiState: StateFlow<ParkingUiState> = _uiState.asStateFlow()
 
-    private val _currentUser = MutableStateFlow<FirebaseUser?>(auth?.currentUser)
-    val currentUser: StateFlow<FirebaseUser?> = _currentUser.asStateFlow()
-
     val parkingLots: StateFlow<List<ParkingLot>> = localRepository.parkingLots
     val currentUserLocation: StateFlow<UserLocation> = localRepository.currentUserLocation
     private val _deviceGpsLocation = MutableStateFlow<UserLocation?>(null)
     val deviceGpsLocation: StateFlow<UserLocation?> = _deviceGpsLocation.asStateFlow()
-    val savedLots: StateFlow<List<SavedLotEntity>> = localRepository.savedLots
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val parkedCar: StateFlow<ParkedCarEntity?> = localRepository.parkedCar
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    // Merged community reports from Firestore (when authenticated) and local repository
-    private val _firestoreReports = MutableStateFlow<List<CommunityReport>>(emptyList())
-    val communityReports: StateFlow<List<CommunityReport>> = combine(
-        localRepository.communityReports,
-        _firestoreReports
-    ) { local, firestore ->
-        (firestore + local).distinctBy { it.id }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val keepAlive = SharingStarted.WhileSubscribed(ViewModelTiming.SUBSCRIPTION_KEEPALIVE_MS)
 
-    private var firestoreSyncJob: Job? = null
+    val savedLots: StateFlow<List<SavedLotEntity>> = accounts.ownerUid.flatMapLatest { local.savedLots(it) }
+        .stateIn(viewModelScope, keepAlive, emptyList())
+    val parkedCar: StateFlow<ParkedCarEntity?> = accounts.ownerUid.flatMapLatest { local.parkedCar(it) }
+        .stateIn(viewModelScope, keepAlive, null)
+    private val ownReports: StateFlow<List<OwnReportEntity>> = accounts.ownerUid.flatMapLatest { local.ownReports(it) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    private val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
-        val user = firebaseAuth.currentUser
-        _currentUser.value = user
-        if (user != null) {
-            startFirestoreSync(user.uid)
-        } else {
-            firestoreSyncJob?.cancel()
-            _firestoreReports.value = emptyList()
-        }
-    }
+    /** Reports injected by JVM tests; when set they replace the cloud feed. */
+    private val testReports = MutableStateFlow<List<CommunityReport>?>(null)
+    private val serverReports = combine(graph.cloud.reports, testReports) { cloud, injected -> injected ?: cloud }
+
+    /** The shared feed plus this device's own reports still waiting to sync, which are shown but never counted (4.14). */
+    val communityReports: StateFlow<List<CommunityReport>> = combine(localRepository.communityReports, ownReports) { shared, own ->
+        val sharedIds = shared.mapTo(HashSet()) { it.id }
+        shared + own.filter { it.syncState == ReportSyncState.PENDING && it.id !in sharedIds }.mapNotNull { it.toCommunityReport() }
+    }.stateIn(viewModelScope, keepAlive, emptyList())
+
+    val waitingReportIds: StateFlow<Set<String>> = ownReports
+        .map { rows -> rows.filter { it.syncState == ReportSyncState.PENDING }.mapTo(HashSet()) { it.id } }
+        .stateIn(viewModelScope, keepAlive, emptySet())
+
+    val feed: StateFlow<FeedStatus> = graph.cloud.feed
+
+    val account: StateFlow<AccountUiState> = combine(
+        combine(accounts.user, accounts.busy, accounts.deletionPending, graph.network.online, graph.lastSyncAt) { user, busy, deleting, online, lastSync ->
+            AccountUiState(
+                isGuest = user == null || user.isAnonymous,
+                email = user?.email,
+                lastSyncAt = lastSync,
+                online = online,
+                busy = busy,
+                deletionPending = deleting != null
+            )
+        },
+        accounts.ownerUid.flatMapLatest { local.pendingChangeCount(it) },
+        accounts.ownerUid.flatMapLatest { local.syncErrorCount(it) },
+        ownReports.map { rows -> rows.count { it.syncState == ReportSyncState.REJECTED } }
+    ) { base, pending, errors, rejected ->
+        base.copy(pendingChanges = pending, notSyncedItems = errors, rejectedReports = rejected)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, AccountUiState())
+
+    private val _prompt = MutableStateFlow<AccountPrompt?>(null)
+    val prompt: StateFlow<AccountPrompt?> = _prompt.asStateFlow()
+    private var promptAnswer: CompletableDeferred<Boolean>? = null
 
     init {
-        // Listen to Firebase Auth state if available
-        auth?.addAuthStateListener(authStateListener)
-
-        // 60-second periodic ticker: recalculates crowd consensus decay (90m stale, 180m expired)
-        // and automatically refreshes selectedLot without requiring manual interaction
         viewModelScope.launch {
-            while (this.isActive) {
-                delay(60_000L)
+            combine(serverReports, local.pendingReportIds()) { reports, pending -> reports to pending.toSet() }
+                .collect { (reports, pending) -> localRepository.updateCommunityReports(reports, pending) }
+        }
+        viewModelScope.launch {
+            while (isActive) {
+                delay(ViewModelTiming.statusRefreshMs)
                 localRepository.recalculateLotConsensus()
-                _uiState.update { current ->
-                    val refreshedSelected = current.selectedLot?.let { sel ->
-                        parkingLots.value.firstOrNull { it.id == sel.id } ?: sel
-                    }
-                    current.copy(selectedLot = refreshedSelected)
-                }
+                refreshSelectedLot()
             }
+        }
+        viewModelScope.launch {
+            parkingLots.collect { refreshSelectedLot() }
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        auth?.removeAuthStateListener(authStateListener)
-        firestoreSyncJob?.cancel()
+    private fun refreshSelectedLot() {
+        _uiState.update { current ->
+            current.copy(selectedLot = current.selectedLot?.let { sel -> parkingLots.value.firstOrNull { it.id == sel.id } ?: sel })
+        }
     }
 
-    private fun startFirestoreSync(userId: String) {
-        val repo = firestoreRepository ?: return
-        firestoreSyncJob?.cancel()
-        firestoreSyncJob = viewModelScope.launch {
-            // 1. Observe public live reports with distinct user tracking
-            launch {
-                repo.observeCommunityReports()
-                    .catch { /* handled in repository */ }
-                    .collect { remoteReports ->
-                        val mapped = remoteReports.map { doc ->
-                            val createdAt = doc.createdAt?.toDate()
-                            val (reportMs, ageMin) = if (createdAt != null) {
-                                val ms = createdAt.time
-                                val age = ((System.currentTimeMillis() - ms) / (60 * 1000L)).coerceAtLeast(0).toInt()
-                                Pair(ms, age)
-                            } else {
-                                // Missing timestamp treated as expired / unknown
-                                Pair(0L, 999)
-                            }
-                            CommunityReport(
-                                id = doc.id.ifBlank { "remote_${System.currentTimeMillis()}" },
-                                userId = doc.userId,
-                                lotId = doc.lotId,
-                                reporterName = doc.reporterName,
-                                minutesAgo = ageMin,
-                                statusReported = try {
-                                    AvailabilityStatus.valueOf(doc.status)
-                                } catch (e: Exception) {
-                                    AvailabilityStatus.UNKNOWN
-                                },
-                                comment = doc.comment,
-                                spotsEstimate = doc.spotsEstimate,
-                                timestampMs = reportMs,
-                                isPendingSync = false
-                            )
-                        }
-                        _firestoreReports.value = mapped
-                        localRepository.updateCommunityReports(mapped)
-                    }
-            }
+    /** Results of account flows show inside the account sheet when it is open, since a snackbar would sit behind it. */
+    private fun notifyAccount(message: String?) {
+        if (message == null) return
+        _uiState.update { if (it.isAuthDialogVisible) it.copy(accountMessage = message) else it.copy(userNotification = message) }
+    }
 
-            // 2. Sync remote saved lots into local Room database for offline resilience
-            launch {
-                repo.observeSavedLots(userId)
-                    .catch { /* handled */ }
-                    .collect { remoteLots ->
-                        remoteLots.forEach { rLot ->
-                            database.parkingDao().insertSavedLot(
-                                SavedLotEntity(
-                                    lotId = rLot.lotId,
-                                    parkName = rLot.parkName,
-                                    lotName = rLot.lotName,
-                                    region = rLot.region,
-                                    userNotes = rLot.userNotes
-                                )
-                            )
-                        }
-                    }
-            }
+    private fun notify(message: String?) {
+        if (message != null) _uiState.update { it.copy(userNotification = message) }
+    }
 
-            // 3. Sync remote parked vehicle if available (preserving isExactGpsLocation!)
-            launch {
-                repo.observeParkedVehicle(userId)
-                    .catch { /* handled */ }
-                    .collect { remoteCar ->
-                        if (remoteCar != null) {
-                            database.parkingDao().saveParkedCar(
-                                ParkedCarEntity(
-                                    id = 1,
-                                    parkName = remoteCar.parkName,
-                                    lotName = remoteCar.lotName,
-                                    latitude = remoteCar.latitude,
-                                    longitude = remoteCar.longitude,
-                                    stallNumber = remoteCar.stallNumber,
-                                    notes = remoteCar.notes,
-                                    isExactGpsLocation = remoteCar.isExactGpsLocation
-                                )
-                            )
-                        }
-                    }
-            }
-        }
+    /** 3.6: while an account flow runs, the user's own writes wait. */
+    private fun writesBlocked(): Boolean {
+        val busy = accounts.busy.value ?: AccountBusy.DELETING.takeIf { accounts.deletionPending.value != null }
+        busy?.let { notify(busyMessage(res, it)) }
+        return busy != null
     }
 
     // Derived filtered lots
@@ -237,7 +212,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
                 userLoc.latitude, userLoc.longitude, lot.latitude, lot.longitude
             )
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, keepAlive, emptyList())
 
     fun updateSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
@@ -299,20 +274,23 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun findNearestOpenSpot(targetParkId: String? = null) {
-        val result = localRepository.findNearestOpenSpot(currentUserLocation.value, targetParkId)
-        if (result != null) {
-            val (nearestLot, route) = result
-            _uiState.update {
-                it.copy(
-                    selectedLot = nearestLot,
-                    activeNavigationRoute = route,
-                    userNotification = "Nearest open spot: ${nearestLot.lotName}"
+        val origin = currentUserLocation.value
+        val (result, route) = localRepository.findNearestOpenSpot(origin, targetParkId)
+        val res = getApplication<Application>().resources
+        val lot = route?.destinationLot
+        val message = when (result) {
+            is NearestResult.Confirmed ->
+                res.getString(R.string.nearest_found, lot?.lotName.orEmpty(), origin.name)
+            is NearestResult.Fallback ->
+                noConfirmedMessage(res, ReportPolicies.DEFAULT) + " " + res.getString(
+                    R.string.nearest_fallback, lot?.lotName.orEmpty(), fallbackStatus(res, result.candidate), origin.name
                 )
-            }
-        } else {
-            _uiState.update {
-                it.copy(userNotification = "All lots in this area currently full or closed. Check overflow suggestions!")
-            }
+            NearestResult.NothingQualifies ->
+                noConfirmedMessage(res, ReportPolicies.DEFAULT) + " " + res.getString(R.string.nearest_nothing)
+        }
+        _uiState.update {
+            if (lot == null) it.copy(userNotification = message)
+            else it.copy(selectedLot = lot, activeNavigationRoute = route, userNotification = message)
         }
     }
 
@@ -321,22 +299,10 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun refreshLiveAvailability() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isRefreshing = true) }
-            localRepository.recalculateLotConsensus()
-            delay(400)
-            val msg = if (_currentUser.value != null) {
-                "Crowd status refreshed from Firestore"
-            } else {
-                "Loaded offline guide & reports. Sign in with Google to sync live reports."
-            }
-            _uiState.update {
-                it.copy(
-                    isRefreshing = false,
-                    userNotification = msg
-                )
-            }
-        }
+        localRepository.recalculateLotConsensus()
+        refreshSelectedLot()
+        graph.syncControl.request()
+        notify(feedMessage(res, feed.value, graph.clock()))
     }
 
     fun setUserLocation(location: UserLocation) {
@@ -350,35 +316,17 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun toggleSaveLot(lot: ParkingLot) {
+        if (writesBlocked()) return
+        val owner = accounts.ownerUid.value
+        val isSaved = savedLots.value.any { it.lotId == lot.id }
         viewModelScope.launch {
-            val isSaved = savedLots.value.any { it.lotId == lot.id }
-            val user = _currentUser.value
-
-            // 1. Local Room DB update (always available offline)
-            localRepository.toggleSaveLot(lot, isSaved)
-
-            // 2. Cloud Firestore sync (if signed in)
-            if (user != null) {
-                try {
-                    if (isSaved) {
-                        firestoreRepository?.deleteSavedLot(user.uid, lot.id)
-                    } else {
-                        firestoreRepository?.saveLot(
-                            userId = user.uid,
-                            lotId = lot.id,
-                            parkName = lot.parkName,
-                            lotName = lot.lotName,
-                            region = lot.region.displayName,
-                            userNotes = lot.proTips
-                        )
-                    }
-                } catch (e: Exception) {
-                    // Fail gracefully to local storage
-                }
+            if (isSaved) {
+                local.unsaveLot(owner, lot.id, graph.clock())
+            } else {
+                local.saveLot(owner, lot.id, lot.parkName, lot.lotName, lot.region.displayName, "", graph.clock())
             }
-
-            val msg = if (isSaved) "Removed from saved" else "Saved offline" + if (user != null) " & synced to cloud" else ""
-            _uiState.update { it.copy(userNotification = msg) }
+            graph.syncControl.request()
+            notify(res.getString(if (isSaved) R.string.lot_unsaved else R.string.lot_saved))
         }
     }
 
@@ -391,7 +339,7 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun showAuthDialog(visible: Boolean) {
-        _uiState.update { it.copy(isAuthDialogVisible = visible) }
+        _uiState.update { it.copy(isAuthDialogVisible = visible, accountMessage = null) }
     }
 
     fun showDisclaimer(visible: Boolean) {
@@ -404,70 +352,34 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
 
     fun submitCommunityReport(
         lotId: String,
-        reporterName: String,
         status: AvailabilityStatus,
         comment: String,
         spots: Int?
     ) {
         val trimmedComment = comment.trim()
-        if (trimmedComment.length < 3 || trimmedComment.length > 500) {
-            _uiState.update {
-                it.copy(userNotification = "Report submission failed: Comment must be between 3 and 500 characters.")
-            }
+        if (!isValidReportComment(trimmedComment)) {
+            notify(res.getString(R.string.report_comment_length, CloudLimits.MIN_COMMENT_LENGTH, CloudLimits.MAX_COMMENT_LENGTH))
             return
         }
-
+        if (writesBlocked()) return
+        val owner = accounts.ownerUid.value
+        val lot = parkingLots.value.firstOrNull { it.id == lotId } ?: return
         viewModelScope.launch {
-            val user = _currentUser.value
-            val lot = parkingLots.value.firstOrNull { it.id == lotId }
-            val parkName = lot?.parkName ?: "BC Park"
-            val uid = user?.uid ?: "anon_${System.currentTimeMillis()}"
-
-            // Local immediate update into consensus engine (marked pending sync if user is signed in)
-            val tempId = localRepository.submitLocalReport(
-                lotId = lotId,
-                userId = uid,
-                reporterName = reporterName,
-                status = status,
-                comment = trimmedComment,
-                spots = spots,
-                isPendingSync = user != null
+            local.addReport(
+                OwnReportEntity(
+                    id = UUID.randomUUID().toString(),
+                    ownerUid = owner,
+                    lotId = lotId,
+                    parkName = lot.parkName,
+                    reporterName = res.getString(R.string.default_reporter_name),
+                    status = status.name,
+                    comment = trimmedComment,
+                    spotsEstimate = spots,
+                    observedAt = graph.clock()
+                )
             )
-
-            if (user != null) {
-                try {
-                    firestoreRepository?.postCommunityReport(
-                        lotId = lotId,
-                        parkName = parkName,
-                        status = status.name,
-                        comment = trimmedComment,
-                        spotsEstimate = spots,
-                        reporterName = reporterName.ifBlank { user.displayName ?: "BC Hiker" }
-                    )
-                    localRepository.markReportSynced(tempId)
-                    _uiState.update {
-                        it.copy(
-                            isReportingDialogVisible = false,
-                            userNotification = "Thank you! Community report synced to live cloud feed."
-                        )
-                    }
-                } catch (e: Exception) {
-                    // Report is preserved locally marked as pending sync
-                    _uiState.update {
-                        it.copy(
-                            isReportingDialogVisible = false,
-                            userNotification = "Cloud sync failed: ${e.localizedMessage ?: "Network error"}. Report retained locally."
-                        )
-                    }
-                }
-            } else {
-                _uiState.update {
-                    it.copy(
-                        isReportingDialogVisible = false,
-                        userNotification = "Saved offline report on this device. Sign in with Google to sync live reports to cloud."
-                    )
-                }
-            }
+            graph.syncControl.request()
+            _uiState.update { it.copy(isReportingDialogVisible = false, userNotification = res.getString(R.string.report_saved)) }
         }
     }
 
@@ -476,122 +388,128 @@ class ParkingViewModel(application: Application) : AndroidViewModel(application)
         notes: String,
         deviceLocation: android.location.Location? = null
     ) {
-        val currentLot = _uiState.value.selectedLot ?: parkingLots.value.first()
-        val user = _currentUser.value
-
-        val isGpsFix = deviceLocation != null
-        val lat = deviceLocation?.latitude ?: currentLot.latitude
-        val lng = deviceLocation?.longitude ?: currentLot.longitude
-        val formattedNotes = if (isGpsFix) {
-            notes
-        } else {
-            if (notes.isBlank()) "Lot pin, not your exact car location"
-            else "$notes (Lot pin, not your exact car location)"
-        }
-
-        viewModelScope.launch {
-            // Local Room save
-            localRepository.saveParkedCarLocation(
-                parkName = currentLot.parkName,
-                lotName = currentLot.lotName,
-                latitude = lat,
-                longitude = lng,
-                stallNumber = stall,
-                notes = formattedNotes,
-                isExactGpsLocation = isGpsFix
-            )
-
-            // Cloud Firestore sync (preserving isExactGpsLocation!)
-            if (user != null) {
-                try {
-                    firestoreRepository?.saveParkedVehicle(
-                        userId = user.uid,
-                        parkName = currentLot.parkName,
-                        lotName = currentLot.lotName,
-                        latitude = lat,
-                        longitude = lng,
-                        stallNumber = stall,
-                        notes = formattedNotes,
-                        isExactGpsLocation = isGpsFix
-                    )
-                } catch (e: Exception) {
-                    // Fallback to offline
+        carPinProblem(stall, notes)?.let { problem ->
+            notify(
+                when (problem) {
+                    CarPinProblem.STALL_TOO_LONG -> res.getString(R.string.car_stall_too_long, CloudLimits.MAX_STALL_LENGTH)
+                    CarPinProblem.NOTES_TOO_LONG -> res.getString(R.string.car_notes_too_long, CloudLimits.MAX_NOTES_LENGTH)
                 }
-            }
-
-            val notificationMsg = if (isGpsFix) {
-                "Vehicle saved with device GPS coordinates (${String.format("%.4f", lat)}, ${String.format("%.4f", lng)})"
-            } else {
-                "Vehicle saved (Using lot pin; exact GPS was unavailable)"
-            }
-
+            )
+            return
+        }
+        if (writesBlocked()) return
+        val currentLot = _uiState.value.selectedLot ?: parkingLots.value.first()
+        val owner = accounts.ownerUid.value
+        val isGpsFix = deviceLocation != null
+        val now = graph.clock()
+        val car = ParkedCarEntity(
+            ownerUid = owner,
+            parkName = currentLot.parkName,
+            lotName = currentLot.lotName,
+            latitude = deviceLocation?.latitude ?: currentLot.latitude,
+            longitude = deviceLocation?.longitude ?: currentLot.longitude,
+            stallNumber = stall,
+            notes = notes,
+            timestamp = now,
+            isExactGpsLocation = isGpsFix,
+            updatedAt = now
+        )
+        viewModelScope.launch {
+            local.pinCar(owner, car)
+            graph.syncControl.request()
             _uiState.update {
                 it.copy(
                     isSaveCarSheetVisible = false,
-                    userNotification = notificationMsg
+                    userNotification = res.getString(if (isGpsFix) R.string.car_saved_gps else R.string.car_saved_lot_pin)
                 )
             }
         }
     }
 
     fun clearParkedCar() {
-        val user = _currentUser.value
+        if (writesBlocked()) return
+        val owner = accounts.ownerUid.value
         viewModelScope.launch {
-            localRepository.clearParkedCar()
-            if (user != null) {
-                try {
-                    firestoreRepository?.clearParkedVehicle(user.uid)
-                } catch (e: Exception) {
-                    // Fallback
-                }
-            }
-            _uiState.update { it.copy(userNotification = "Parked car pin cleared") }
+            local.clearCar(owner, graph.clock())
+            graph.syncControl.request()
+            notify(res.getString(R.string.car_cleared))
         }
     }
 
-    fun deleteUserAccountAndData(
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
-        val user = auth?.currentUser
-        if (user == null) {
-            onError("No authenticated user to delete.")
-            return
-        }
-
-        val uid = user.uid
+    fun discardRejectedReports() {
         viewModelScope.launch {
-            try {
-                // 1. Delete Firestore private data, parked vehicle, and community reports
-                // Do NOT swallow Firestore error!
-                firestoreRepository?.deleteUserData(uid)
+            ownReports.value.filter { it.syncState == ReportSyncState.REJECTED }.forEach { local.discardReport(it.id) }
+        }
+    }
 
-                // 2. Delete Firebase Auth user profile
-                try {
-                    user.delete().await()
-                } catch (e: com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException) {
-                    val msg = "Security re-authentication required. Please sign out, sign in with Google again, and retry account deletion."
-                    _uiState.update { it.copy(userNotification = msg) }
-                    onError(msg)
+    fun retryNotSynced() {
+        val owner = accounts.ownerUid.value
+        viewModelScope.launch {
+            local.clearSyncErrors(owner)
+            graph.syncControl.request()
+        }
+    }
+
+    private suspend fun ask(prompt: AccountPrompt): Boolean {
+        val answer = CompletableDeferred<Boolean>()
+        promptAnswer = answer
+        _prompt.value = prompt
+        return try {
+            answer.await()
+        } finally {
+            _prompt.value = null
+            promptAnswer = null
+        }
+    }
+
+    fun answerPrompt(accepted: Boolean) {
+        promptAnswer?.complete(accepted)
+    }
+
+    /** 4.15 and 4.16. [requestToken] shows the Google account picker; it runs only from a tap. */
+    fun signInWithGoogle(requestToken: suspend () -> GoogleTokenResult) {
+        if (!account.value.online || account.value.busy != null) return
+        viewModelScope.launch {
+            when (val token = requestToken()) {
+                is GoogleTokenResult.Token -> {
+                    val outcome = accounts.signInWithGoogle(token.idToken) { items -> ask(AccountPrompt.ConfirmMerge(items)) }
+                    Log.i(LOG_TAG, "Google sign-in outcome: $outcome")
+                    notifyAccount(outcomeMessage(res, outcome))
+                }
+                else -> {
+                    Log.i(LOG_TAG, "Google token request ended without a token: $token")
+                    notifyAccount(tokenMessage(res, token))
+                }
+            }
+        }
+    }
+
+    /** 4.18. */
+    fun signOut(forgetGoogleChoice: suspend () -> Unit) {
+        if (!account.value.online || account.value.busy != null) return
+        viewModelScope.launch {
+            val outcome = accounts.signOut { pending -> ask(AccountPrompt.ConfirmSignOut(pending)) }
+            if (outcome is AccountOutcome.SignedOut) forgetGoogleChoice()
+            notifyAccount(outcomeMessage(res, outcome))
+        }
+    }
+
+    /** 4.19. The sheet has already asked the user to confirm. A Google account re-authenticates through [requestToken]. */
+    fun deleteMyData(requestToken: suspend () -> GoogleTokenResult) {
+        if (!account.value.online || account.value.busy != null) return
+        viewModelScope.launch {
+            val retry = account.value.deletionPending
+            val token = if (account.value.isGuest) null else when (val result = requestToken()) {
+                is GoogleTokenResult.Token -> result.idToken
+                else -> {
+                    notifyAccount(tokenMessage(res, result))
                     return@launch
                 }
-
-                // 3. Clear local Room cached data only after cloud deletion succeeds
-                localRepository.clearAllLocalUserData()
-
-                _currentUser.value = null
-                _uiState.update {
-                    it.copy(
-                        isAuthDialogVisible = false,
-                        userNotification = "Your account, saved lots, vehicle location, and community reports have been permanently deleted."
-                    )
-                }
-                onSuccess()
-            } catch (e: Exception) {
-                val err = "Account deletion aborted: ${e.localizedMessage ?: "Failed to delete cloud data. Local data preserved."}"
-                _uiState.update { it.copy(userNotification = err) }
-                onError(err)
             }
+            val outcome = if (retry) accounts.retryDeletion(token) else accounts.deleteMyData(token)
+            Log.i(LOG_TAG, "Delete my data outcome: $outcome")
+            if (outcome == AccountOutcome.Deleted) _uiState.update { it.copy(isAuthDialogVisible = false, accountMessage = null) }
+            notifyAccount(outcomeMessage(res, outcome))
         }
     }
 

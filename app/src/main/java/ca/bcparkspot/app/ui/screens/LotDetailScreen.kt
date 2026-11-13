@@ -1,5 +1,15 @@
 package ca.bcparkspot.app.ui.screens
 
+import ca.bcparkspot.app.ui.theme.Spacing
+import ca.bcparkspot.app.ui.prediction.PredictionRow
+import ca.bcparkspot.app.domain.LotState
+import ca.bcparkspot.app.ui.theme.Alpha
+import ca.bcparkspot.app.ui.theme.BCParkSpotColors
+import ca.bcparkspot.app.ui.theme.stateTone
+import ca.bcparkspot.app.domain.ReportPolicies
+import ca.bcparkspot.app.ui.text.stateDetail
+import ca.bcparkspot.app.ui.text.stateHeadline
+import ca.bcparkspot.app.ui.theme.passTone
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -22,6 +32,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import ca.bcparkspot.app.R
+import ca.bcparkspot.app.ui.text.formatAge
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,6 +48,7 @@ fun LotDetailScreen(
     lot: ParkingLot,
     isSaved: Boolean,
     communityReports: List<CommunityReport>,
+    waitingReportIds: Set<String> = emptySet(),
     onBack: () -> Unit,
     onNavigate: () -> Unit,
     onFindNearestOpen: () -> Unit,
@@ -46,7 +60,9 @@ fun LotDetailScreen(
 ) {
     BackHandler(onBack = onBack)
     val context = LocalContext.current
-    val consensus = lot.crowdConsensus
+    val crowd = lot.crowd
+    val resources = LocalContext.current.resources
+    val semantic = BCParkSpotColors.semantic
     val lotReports = communityReports.filter { it.lotId == lot.id }
 
     Scaffold(
@@ -141,7 +157,7 @@ fun LotDetailScreen(
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = Alpha.SUBTLE)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
@@ -164,7 +180,7 @@ fun LotDetailScreen(
                             Text(
                                 text = if (lot.verifiedAt != null) "Verified ${lot.verifiedAt}" else "Guidebook Baseline",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
 
@@ -173,13 +189,7 @@ fun LotDetailScreen(
                         // Consensus badge
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = when {
-                                consensus?.freshness == CrowdFreshness.ACTIVE && consensus.status == AvailabilityStatus.FULL -> Color(0xFFFEE2E2)
-                                consensus?.freshness == CrowdFreshness.ACTIVE && consensus.status == AvailabilityStatus.FILLING_FAST -> Color(0xFFFEF3C7)
-                                consensus?.freshness == CrowdFreshness.ACTIVE -> Color(0xFFDCFCE7)
-                                consensus?.freshness == CrowdFreshness.STALE -> Color(0xFFFFFBEB)
-                                else -> Color(0xFFF1F5F9)
-                            },
+                            color = stateTone(crowd.state, semantic).container,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -187,13 +197,7 @@ fun LotDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                val dotColor = when {
-                                    consensus?.freshness == CrowdFreshness.ACTIVE && consensus.status == AvailabilityStatus.FULL -> Color(0xFFDC2626)
-                                    consensus?.freshness == CrowdFreshness.ACTIVE && consensus.status == AvailabilityStatus.FILLING_FAST -> Color(0xFFD97706)
-                                    consensus?.freshness == CrowdFreshness.ACTIVE -> Color(0xFF16A34A)
-                                    consensus?.freshness == CrowdFreshness.STALE -> Color(0xFFB45309)
-                                    else -> Color(0xFF64748B)
-                                }
+                                val dotColor = stateTone(crowd.state, semantic).onContainer
                                 Icon(
                                     imageVector = Icons.Default.Circle,
                                     contentDescription = null,
@@ -202,14 +206,19 @@ fun LotDetailScreen(
                                 )
                                 Column {
                                     Text(
-                                        text = consensus?.displaySummary ?: "Guidebook Baseline • No recent crowd reports (3h)",
+                                        text = stateHeadline(resources, crowd.state),
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = dotColor
                                     )
+                                    Text(
+                                        text = stateDetail(resources, crowd.state, ReportPolicies.DEFAULT),
+                                        fontSize = 12.sp,
+                                        color = dotColor
+                                    )
                                     val capacityPhrase = if (lot.totalSpots != null) "Official capacity: ${lot.totalSpots} stalls • " else ""
                                     Text(
-                                        text = "${capacityPhrase}Based on park data & community reports",
+                                        text = "${capacityPhrase}Status comes from hiker reports, not sensors",
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -217,10 +226,21 @@ fun LotDetailScreen(
                             }
                         }
 
-                        if (consensus?.latestComment != null) {
+                        val prediction = lot.prediction
+                        if (prediction != null && crowd.state == LotState.NoRecentReports) {
+                            Spacer(modifier = Modifier.height(Spacing.sm))
+                            PredictionRow(prediction, showSource = true)
+                            Text(
+                                text = stringResource(R.string.prediction_explainer),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = Spacing.xs)
+                            )
+                        }
+                        if (crowd.latestComment != null) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Latest Note: \"${consensus.latestComment}\"",
+                                text = "Latest Note: \"${crowd.latestComment}\"",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
@@ -269,21 +289,16 @@ fun LotDetailScreen(
             // Seasonal Day-Use Pass Policy Card
             item {
                 val passState = lot.getPassState()
+                val passRequired = passState == PassRequirementStatus.REQUIRED
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = when (passState) {
-                            PassRequirementStatus.REQUIRED -> Color(0xFFFEF3C7)
-                            else -> Color(0xFFF8FAFC)
-                        }
+                        containerColor = if (passRequired) semantic.caution.container else MaterialTheme.colorScheme.surfaceContainerLow
                     ),
                     border = BorderStroke(
                         1.dp,
-                        when (passState) {
-                            PassRequirementStatus.REQUIRED -> Color(0xFFF59E0B)
-                            else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                        }
+                        if (passRequired) semantic.caution.accent else MaterialTheme.colorScheme.outlineVariant
                     )
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -298,11 +313,7 @@ fun LotDetailScreen(
                                     PassRequirementStatus.NOT_REQUIRED -> Icons.Default.CheckCircle
                                 },
                                 contentDescription = null,
-                                tint = when (passState) {
-                                    PassRequirementStatus.REQUIRED -> Color(0xFFB45309)
-                                    PassRequirementStatus.UNKNOWN -> Color(0xFF475569)
-                                    PassRequirementStatus.NOT_REQUIRED -> Color(0xFF059669)
-                                }
+                                tint = if (passRequired) semantic.caution.onContainer else passTone(passState, semantic).accent
                             )
                             Text(
                                 text = when (passState) {
@@ -314,19 +325,13 @@ fun LotDetailScreen(
                                 },
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
-                                color = when (passState) {
-                                    PassRequirementStatus.REQUIRED -> Color(0xFF92400E)
-                                    else -> Color(0xFF0F172A)
-                                }
+                                color = if (passRequired) semantic.caution.onContainer else MaterialTheme.colorScheme.onSurface
                             )
                         }
                         Text(
                             text = lot.passInfo,
                             style = MaterialTheme.typography.bodySmall,
-                            color = when (passState) {
-                                PassRequirementStatus.REQUIRED -> Color(0xFF78350F)
-                                else -> Color(0xFF334155)
-                            }
+                            color = if (passRequired) semantic.caution.onContainer else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -337,7 +342,7 @@ fun LotDetailScreen(
                 Card(
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = Alpha.SUBTLE))
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(text = "Trailhead Specifications", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -409,7 +414,7 @@ fun LotDetailScreen(
                 item {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = Alpha.LOW),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
@@ -425,7 +430,7 @@ fun LotDetailScreen(
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = Alpha.FAINT)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
@@ -439,24 +444,24 @@ fun LotDetailScreen(
                                     fontSize = 13.sp
                                 )
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    if (report.isPendingSync) {
+                                    if (report.id in waitingReportIds) {
                                         Surface(
                                             shape = RoundedCornerShape(4.dp),
-                                            color = Color(0xFFFEF3C7)
+                                            color = semantic.caution.container
                                         ) {
                                             Text(
-                                                text = "Local (Pending Sync)",
+                                                text = stringResource(R.string.report_waiting_to_sync),
                                                 fontSize = 10.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = Color(0xFFB45309),
+                                                color = semantic.caution.onContainer,
                                                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                                             )
                                         }
                                     }
                                     Text(
-                                        text = "${report.minutesAgo}m ago",
+                                        text = formatAge(LocalContext.current.resources, System.currentTimeMillis() - report.timestampMs),
                                         fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.outline
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }

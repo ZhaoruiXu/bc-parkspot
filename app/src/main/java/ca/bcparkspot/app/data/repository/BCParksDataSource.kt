@@ -1,5 +1,7 @@
 package ca.bcparkspot.app.data.repository
 
+import ca.bcparkspot.app.domain.BLOCKING_OUTLOOKS
+import ca.bcparkspot.app.domain.isOfferable
 import ca.bcparkspot.app.model.*
 import java.time.DayOfWeek
 import java.time.LocalTime
@@ -41,7 +43,7 @@ object BCParksDataSource {
             ),
             feeType = ParkingFeeType.FREE,
             feeDescription = "Free Public Parking",
-            gateHours = "Open 24/7 (Upper gate closed if winter snow unplowed)",
+            gateHours = "No gate hours published",
             isGateOpen = true,
             evChargingSpots = 0,
             isRvDashAllowed = true,
@@ -94,7 +96,7 @@ object BCParksDataSource {
             ),
             feeType = ParkingFeeType.FREE,
             feeDescription = "Free with Valid Day-Pass",
-            gateHours = "Open 24/7 (Seasonal FSR - unmaintained in winter)",
+            gateHours = "No gate hours published",
             isGateOpen = true,
             evChargingSpots = 0,
             isRvDashAllowed = false,
@@ -154,7 +156,7 @@ object BCParksDataSource {
             ),
             feeType = ParkingFeeType.FREE,
             feeDescription = "Free Parking with Valid Trail Pass",
-            gateHours = "Daylight hours (7:00 AM – 9:00 PM)",
+            gateHours = "No daily gate hours published (winter access may be blocked by snow)",
             isGateOpen = true,
             evChargingSpots = 2,
             isRvDashAllowed = false,
@@ -199,7 +201,7 @@ object BCParksDataSource {
             ),
             feeType = ParkingFeeType.FREE,
             feeDescription = "Free with Valid Vehicle Pass",
-            gateHours = "7:00 AM – 11:00 PM (Winter gate closes 5:30 PM)",
+            gateHours = "7:00 AM – 11:00 PM April to mid-October; 7:00 AM – 7:00 PM mid-October to March",
             isGateOpen = true,
             evChargingSpots = 4,
             isRvDashAllowed = true,
@@ -244,7 +246,7 @@ object BCParksDataSource {
             ),
             feeType = ParkingFeeType.FREE,
             feeDescription = "Free with Valid Vehicle Pass",
-            gateHours = "7:00 AM – 11:00 PM",
+            gateHours = "7:00 AM – 11:00 PM April to mid-October; 7:00 AM – 7:00 PM mid-October to March",
             isGateOpen = true,
             evChargingSpots = 2,
             isRvDashAllowed = true,
@@ -289,7 +291,7 @@ object BCParksDataSource {
             ),
             feeType = ParkingFeeType.FREE,
             feeDescription = "Free with Valid Vehicle Pass",
-            gateHours = "7:00 AM – 11:00 PM",
+            gateHours = "7:00 AM – 11:00 PM April to mid-October; 7:00 AM – 7:00 PM mid-October to March",
             isGateOpen = true,
             evChargingSpots = 0,
             isRvDashAllowed = false,
@@ -323,7 +325,7 @@ object BCParksDataSource {
             passRulePeriods = emptyList(),
             feeType = ParkingFeeType.FREE,
             feeDescription = "Free Public Trailhead Parking",
-            gateHours = "7:00 AM – 10:00 PM (Lower gate locked at 10 PM)",
+            gateHours = "6:00 AM – 10:00 PM at the gate above lot 2; November to mid-April the road gate is closed 10:00 PM – 7:00 AM",
             isGateOpen = true,
             evChargingSpots = 2,
             isRvDashAllowed = true,
@@ -357,7 +359,7 @@ object BCParksDataSource {
             passRulePeriods = emptyList(),
             feeType = ParkingFeeType.FREE,
             feeDescription = "Free Public Trail Parking",
-            gateHours = "7:00 AM – 10:00 PM",
+            gateHours = "6:00 AM – 10:00 PM at the gate above lot 2; November to mid-April the road gate is closed 10:00 PM – 7:00 AM",
             isGateOpen = true,
             evChargingSpots = 0,
             isRvDashAllowed = true,
@@ -390,7 +392,7 @@ object BCParksDataSource {
             passInfo = "Summer hiking requires no day-use pass. Winter backcountry trail access ticket required for Black Mountain.",
             feeType = ParkingFeeType.FREE,
             feeDescription = "Free Public Provincial Park",
-            gateHours = "6:00 AM – 11:00 PM",
+            gateHours = "No gate hours published",
             isGateOpen = true,
             evChargingSpots = 6,
             isRvDashAllowed = true,
@@ -422,7 +424,7 @@ object BCParksDataSource {
             passInfo = "Day-use pass not currently required. Parking is first-come, first-served.",
             feeType = ParkingFeeType.FREE,
             feeDescription = "Free (Provincial Park)",
-            gateHours = "Open 24/7",
+            gateHours = "7:00 AM – 9:00 PM Mar 15 – May 7; 7:00 AM – 11:00 PM May 8 – Sep 15; 7:00 AM – 9:00 PM Sep 16 – Oct 15; in winter the campground gate is locked 11:00 PM – 7:00 AM",
             isGateOpen = true,
             evChargingSpots = 0,
             isRvDashAllowed = false,
@@ -465,7 +467,7 @@ object BCParksDataSource {
             ),
             feeType = ParkingFeeType.FREE_HYDRO_PASS,
             feeDescription = "Free with BC Hydro Reservation",
-            gateHours = "8:00 AM – 8:00 PM (Gates strictly locked at 8 PM)",
+            gateHours = "8:00 AM – 8:00 PM in summer; BC Hydro's closing time changes through the year: 4:30 PM, 5:00 PM, 5:30 PM, 6:00 PM, 6:30 PM, 7:00 PM, 7:30 PM",
             isGateOpen = true,
             evChargingSpots = 4,
             isRvDashAllowed = true,
@@ -498,7 +500,7 @@ object BCParksDataSource {
             passInfo = "No day-use pass required. Day parking is free until 11 PM.",
             feeType = ParkingFeeType.FREE,
             feeDescription = "Free Public Provincial Park",
-            gateHours = "7:00 AM – 11:00 PM",
+            gateHours = "Approximate: 8:00 AM – 8:00 PM snowmelt – Apr 30; 7:00 AM – 9:00 PM May 1 – Jun 15; 7:00 AM – 10:00 PM Jun 16 – Sep 14; 8:00 AM – 8:00 PM Sep 15 – first snow (usually late December); closed all day when snow is on the ground",
             isGateOpen = true,
             evChargingSpots = 2,
             isRvDashAllowed = true,
@@ -530,7 +532,7 @@ object BCParksDataSource {
             passInfo = "No day-use pass required. Municipal pay parking in effect.",
             feeType = ParkingFeeType.PAID_HOURLY,
             feeDescription = "$3.00 / hour (March 1 – Oct 31, 8 AM - 6 PM)",
-            gateHours = "7:00 AM – 9:00 PM",
+            gateHours = "7:00 AM – 6:00 PM for now; the closing time changes seasonally and later hours are not published",
             isGateOpen = true,
             evChargingSpots = 2,
             isRvDashAllowed = false,
@@ -545,7 +547,7 @@ object BCParksDataSource {
             overflowLotName = "Deep Cove Panorama Park Lot",
             overflowDistanceKm = 8.1,
             proTips = "Pay via PayByPhone app or ticket kiosks. 4-hour parking maximum enforced.",
-            sourceUrl = "https://www.dnv.org/parks/lynn-canyon-park/"
+            sourceUrl = "https://ecologycentre.ca/plan-your-visit"
         ),
 
         // 14. Deep Cove / Quarry Rock
@@ -562,7 +564,7 @@ object BCParksDataSource {
             passInfo = "No pass required. Seasonal pay parking in effect.",
             feeType = ParkingFeeType.PAID_HOURLY,
             feeDescription = "$3.00 / hour (March 1 – Oct 31)",
-            gateHours = "6:00 AM – 10:00 PM",
+            gateHours = "No gate hours published",
             isGateOpen = true,
             evChargingSpots = 2,
             isRvDashAllowed = false,
@@ -577,7 +579,7 @@ object BCParksDataSource {
             overflowLotName = "Lynn Canyon Ecology Centre Lot",
             overflowDistanceKm = 8.1,
             proTips = "Panorama Dr is very tight. Park at Myrtle Park lot on Cove Cliff Rd and take the 7-minute forest path to the village.",
-            sourceUrl = "https://www.dnv.org/parks/deep-cove"
+            sourceUrl = "https://www.dnv.org/parks-trails-recreation/managing-parking-demand-our-parks"
         ),
 
         // 15. Belcarra Regional Park
@@ -594,7 +596,7 @@ object BCParksDataSource {
             passInfo = "No pass required. Seasonal pay parking in effect.",
             feeType = ParkingFeeType.PAID_SEASONAL,
             feeDescription = "$2.50 / hour (April 1 – Sept 30)",
-            gateHours = "7:00 AM – 9:00 PM",
+            gateHours = "Park hours change through the year: 7:00 AM to 5:00 PM in early January, 6:00 PM from Feb 3, 8:00 PM from Mar 6, 9:00 PM from Apr 7, 8:00 PM from Sep 8, 7:00 PM from Oct 6, 6:00 PM from Nov 3",
             isGateOpen = true,
             evChargingSpots = 2,
             isRvDashAllowed = true,
@@ -609,7 +611,7 @@ object BCParksDataSource {
             overflowLotName = "Sasamat Lake White Pine Beach Lot",
             overflowDistanceKm = 5.6,
             proTips = "Boat launch gets crowded early. Pay parking is enforced 7 days a week in season.",
-            sourceUrl = "https://metrovancouver.org/services/regional-parks/park/belcarra-regional-park"
+            sourceUrl = "https://metrovancouver.org/services/regional-parks/park/t%C9%99mt%C9%99m%C3%ADx%CA%B7t%C9%99n-belcarra-regional-park"
         ),
 
         // 16. Shannon Falls Provincial Park
@@ -626,7 +628,7 @@ object BCParksDataSource {
             passInfo = "No pass required. Free public day parking.",
             feeType = ParkingFeeType.FREE,
             feeDescription = "Free Public Provincial Park",
-            gateHours = "Daylight hours (6:00 AM – 10:00 PM)",
+            gateHours = "7:00 AM – 9:00 PM Mar 15 – May 7 and Sep 16 – Oct 15; otherwise the gate is closed 10:00 PM – 7:00 AM",
             isGateOpen = true,
             evChargingSpots = 4,
             isRvDashAllowed = true,
@@ -658,7 +660,7 @@ object BCParksDataSource {
             passInfo = "No pass required. Municipal seasonal pay parking.",
             feeType = ParkingFeeType.PAID_SEASONAL,
             feeDescription = "$3.50 / hour (May 1 – Oct 15)",
-            gateHours = "6:00 AM – 10:00 PM",
+            gateHours = "No gate hours published",
             isGateOpen = true,
             evChargingSpots = 0,
             isRvDashAllowed = false,
@@ -690,7 +692,7 @@ object BCParksDataSource {
             passInfo = "No pass required. Metro Vancouver seasonal pay parking.",
             feeType = ParkingFeeType.PAID_SEASONAL,
             feeDescription = "$2.50 / hour (April 1 – Sept 30)",
-            gateHours = "7:00 AM – 9:00 PM (Gates locked at 9 PM)",
+            gateHours = "Park hours change through the year: 7:00 AM to 5:00 PM in early January, 6:00 PM from Feb 3, 8:00 PM from Mar 6, 9:00 PM from Apr 7, 8:00 PM from Sep 8, 7:00 PM from Oct 6, 6:00 PM from Nov 3",
             isGateOpen = true,
             evChargingSpots = 2,
             isRvDashAllowed = false,
@@ -705,11 +707,20 @@ object BCParksDataSource {
             overflowLotName = "Buntzen Lake Recreation Area",
             overflowDistanceKm = 4.2,
             proTips = "Warmest swimming lake in the region. Fills completely on warm summer days before 10 AM.",
-            sourceUrl = "https://metrovancouver.org/services/regional-parks/park/belcarra-regional-park"
+            sourceUrl = "https://metrovancouver.org/services/regional-parks/park/t%C9%99mt%C9%99m%C3%ADx%CA%B7t%C9%99n-belcarra-regional-park"
         )
     )
 
     fun getInitialCommunityReports(): List<CommunityReport> = emptyList()
+
+    private const val EARTH_RADIUS_KM = 6371.0
+    private const val ROAD_DISTANCE_FACTOR = 1.28
+    private const val DISTANCE_ROUNDING_STEPS_PER_KM = 10.0
+    private const val MOUNTAIN_HIGHWAY_SPEED_KMH = 65.0
+    private const val REGIONAL_ROAD_SPEED_KMH = 50.0
+    private const val MIN_DRIVE_MINUTES = 4
+    private const val MINUTES_PER_HOUR = 60
+    private const val MAX_ALTERNATIVE_LOTS = 3
 
     fun calculateDistanceKm(
         lat1: Double,
@@ -717,21 +728,25 @@ object BCParksDataSource {
         lat2: Double,
         lon2: Double
     ): Double {
-        val r = 6371.0
         val dLat = Math.toRadians(lat2 - lat1)
         val dLon = Math.toRadians(lon2 - lon1)
         val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
                 Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
                 Math.sin(dLon / 2) * Math.sin(dLon / 2)
         val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-        val straightLineKm = r * c
-        return Math.round(straightLineKm * 1.28 * 10.0) / 10.0
+        val straightLineKm = EARTH_RADIUS_KM * c
+        return Math.round(straightLineKm * ROAD_DISTANCE_FACTOR * DISTANCE_ROUNDING_STEPS_PER_KM) / DISTANCE_ROUNDING_STEPS_PER_KM
     }
 
     fun calculateDrivingMinutes(distanceKm: Double, isMountainHighway: Boolean = true): Int {
-        val avgSpeedKmh = if (isMountainHighway) 65.0 else 50.0
+        val avgSpeedKmh = if (isMountainHighway) MOUNTAIN_HIGHWAY_SPEED_KMH else REGIONAL_ROAD_SPEED_KMH
         val baseHours = distanceKm / avgSpeedKmh
-        return (baseHours * 60).toInt().coerceAtLeast(4)
+        return (baseHours * MINUTES_PER_HOUR).toInt().coerceAtLeast(MIN_DRIVE_MINUTES)
+    }
+
+    fun estimateDriveMinutes(origin: UserLocation, destination: ParkingLot): Int {
+        val distance = calculateDistanceKm(origin.latitude, origin.longitude, destination.latitude, destination.longitude)
+        return calculateDrivingMinutes(distance, destination.region == ParkRegion.SEA_TO_SKY)
     }
 
     fun generateRoute(
@@ -745,8 +760,7 @@ object BCParksDataSource {
             destination.latitude,
             destination.longitude
         )
-        val isMountain = destination.region == ParkRegion.SEA_TO_SKY
-        val estMinutes = calculateDrivingMinutes(distance, isMountain)
+        val estMinutes = estimateDriveMinutes(origin, destination)
 
         val roadCond = when {
             destination.highwayAccess.contains("FSR", ignoreCase = true) || destination.highwayAccess.contains("gravel", ignoreCase = true) ->
@@ -760,9 +774,9 @@ object BCParksDataSource {
         val alternatives = allLots.filter {
             it.id != destination.id &&
             (it.parkId == destination.parkId || it.region == destination.region) &&
-            it.effectiveStatus != AvailabilityStatus.FULL &&
-            it.effectiveStatus != AvailabilityStatus.CLOSED
-        }.take(3)
+            it.crowd.state.isOfferable() &&
+            it.prediction?.outlook !in BLOCKING_OUTLOOKS
+        }.take(MAX_ALTERNATIVE_LOTS)
 
         return NavigationRoute(
             originName = origin.name,

@@ -1,5 +1,6 @@
 package ca.bcparkspot.app.ui.components
 
+import ca.bcparkspot.app.domain.ReportPolicies
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -72,7 +73,7 @@ fun PrivacyPolicyDialog(
                 Text(
                     text = "3. Community Crowdsourced Reports & Retention\n" +
                             "• Public Data: When you submit a parking status report (e.g. 'Lot Full'), your status, stall estimate, note, timestamp, and display name are shared with other hikers.\n" +
-                            "• Live Quorum & Visual Expiration: A quorum of at least 2 distinct hikers is required to confirm live status. Consensus expires visually after 180 minutes, reverting to Guidebook Baseline.\n" +
+                            "• Confirmation and expiry: a lot is shown as confirmed only when at least ${ReportPolicies.MIN_QUORUM_USERS} different hikers report it within ${ReportPolicies.VALIDITY_WINDOW_HOURS} hours. Older reports stop counting.\n" +
                             "• Right to Erasure: Reports are linked to your authenticated UID to prevent spam ballot-stuffing. You retain full right to erasure: deleting your account permanently deletes all reports you have authored.",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

@@ -1,5 +1,13 @@
 package ca.bcparkspot.app.ui.screens
 
+import androidx.compose.ui.text.style.TextOverflow
+import ca.bcparkspot.app.ui.theme.Spacing
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import ca.bcparkspot.app.ui.components.BrandMark
+import ca.bcparkspot.app.ui.theme.Alpha
+import ca.bcparkspot.app.ui.theme.BCParkSpotColors
+import ca.bcparkspot.app.ui.theme.HeroColors
 import android.Manifest
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -71,7 +79,8 @@ fun LotsListScreen(
     val currentUserLocation by viewModel.currentUserLocation.collectAsState()
     val deviceGpsLocation by viewModel.deviceGpsLocation.collectAsState()
     val communityReports by viewModel.communityReports.collectAsState()
-    val currentUser by viewModel.currentUser.collectAsState()
+    val account by viewModel.account.collectAsState()
+    val signedIn = !account.isGuest
     val focusManager = LocalFocusManager.current
     var showLocationMenu by remember { mutableStateOf(false) }
 
@@ -129,45 +138,21 @@ fun LotsListScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    ) {
-                        Text(
-                            text = "BC ParkSpot",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-
-                    Text(
-                        text = "PARKING MAP",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                }
+                BrandMark(textColor = MaterialTheme.colorScheme.onSurface)
 
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     IconButton(
                         onClick = onOpenAuth,
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = Alpha.HALF))
                             .size(34.dp)
                             .testTag("account_button")
                     ) {
                         Icon(
-                            imageVector = if (currentUser != null) Icons.Default.AccountCircle else Icons.Default.PersonOutline,
+                            imageVector = if (signedIn) Icons.Default.AccountCircle else Icons.Default.PersonOutline,
                             contentDescription = "User Account",
-                            tint = if (currentUser != null) Color(0xFF059669) else MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = if (signedIn) BCParkSpotColors.semantic.positive.accent else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -176,13 +161,13 @@ fun LotsListScreen(
                         onClick = { viewModel.refreshLiveAvailability() },
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = Alpha.HALF))
                             .size(34.dp)
                             .testTag("refresh_button")
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Refresh,
-                            contentDescription = "Refresh Live Status",
+                            contentDescription = "Refresh hiker reports",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
@@ -249,9 +234,15 @@ fun LotsListScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
                     Text(
-                        text = "${filteredLots.size} BC Recreational Parking Lots",
+                        text = pluralStringResource(R.plurals.lots_count, filteredLots.size, filteredLots.size),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -263,7 +254,7 @@ fun LotsListScreen(
                                 modifier = Modifier
                                     .size(6.dp)
                                     .clip(RoundedCornerShape(3.dp))
-                                    .background(Color(0xFF10B981))
+                                    .background(BCParkSpotColors.semantic.positive.accent)
                             )
                             Text(
                                 text = "Live Sync",
@@ -337,8 +328,8 @@ fun LotsListScreen(
                             .background(
                                 Brush.verticalGradient(
                                     colors = listOf(
-                                        Color.Black.copy(alpha = 0.35f),
-                                        Color.Black.copy(alpha = 0.75f)
+                                        HeroColors.scrim.copy(alpha = HeroColors.SCRIM_TOP_ALPHA),
+                                        HeroColors.scrim.copy(alpha = HeroColors.SCRIM_BOTTOM_ALPHA)
                                     )
                                 )
                             )
@@ -356,42 +347,21 @@ fun LotsListScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f)
-                                ) {
-                                    Text(
-                                        text = "BC ParkSpot",
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-
-                                Text(
-                                    text = "PARKING LOCATOR",
-                                    color = Color.White.copy(alpha = 0.9f),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp
-                                )
-                            }
+                            BrandMark(textColor = HeroColors.content)
 
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 IconButton(
                                     onClick = onOpenAuth,
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(20.dp))
-                                        .background(Color.White.copy(alpha = 0.2f))
+                                        .background(HeroColors.content.copy(alpha = HeroColors.BUTTON_FILL_ALPHA))
                                         .size(36.dp)
                                         .testTag("account_button")
                                 ) {
                                     Icon(
-                                        imageVector = if (currentUser != null) Icons.Default.AccountCircle else Icons.Default.PersonOutline,
+                                        imageVector = if (signedIn) Icons.Default.AccountCircle else Icons.Default.PersonOutline,
                                         contentDescription = "User Account",
-                                        tint = if (currentUser != null) Color(0xFF34D399) else Color.White,
+                                        tint = if (signedIn) HeroColors.accent else HeroColors.content,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -400,14 +370,14 @@ fun LotsListScreen(
                                     onClick = { viewModel.refreshLiveAvailability() },
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(20.dp))
-                                        .background(Color.White.copy(alpha = 0.2f))
+                                        .background(HeroColors.content.copy(alpha = HeroColors.BUTTON_FILL_ALPHA))
                                         .size(36.dp)
                                         .testTag("refresh_button")
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.Refresh,
-                                        contentDescription = "Refresh Live Status",
-                                        tint = Color.White,
+                                        contentDescription = "Refresh hiker reports",
+                                        tint = HeroColors.content,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -417,10 +387,15 @@ fun LotsListScreen(
                         // Hero Title & Departure Hub Selector
                         Column {
                             Text(
-                                text = "Crowd-reported trailhead parking across British Columbia",
-                                style = MaterialTheme.typography.titleLarge,
+                                text = stringResource(R.string.hero_headline),
+                                style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = Color.White
+                                color = HeroColors.content
+                            )
+                            Text(
+                                text = stringResource(R.string.hero_subline),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = HeroColors.content.copy(alpha = HeroColors.SUBTITLE_ALPHA)
                             )
 
                             Spacer(modifier = Modifier.height(6.dp))
@@ -429,8 +404,8 @@ fun LotsListScreen(
                             Box {
                                 Surface(
                                     shape = RoundedCornerShape(20.dp),
-                                    color = Color.Black.copy(alpha = 0.4f),
-                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                                    color = HeroColors.scrim.copy(alpha = HeroColors.SCRIM_CHIP_ALPHA),
+                                    border = BorderStroke(1.dp, HeroColors.content.copy(alpha = HeroColors.CHIP_BORDER_ALPHA)),
                                     modifier = Modifier.clickable { showLocationMenu = true }
                                 ) {
                                     Row(
@@ -441,19 +416,19 @@ fun LotsListScreen(
                                         Icon(
                                             imageVector = Icons.Default.NearMe,
                                             contentDescription = null,
-                                            tint = Color(0xFF34D399),
+                                            tint = HeroColors.accent,
                                             modifier = Modifier.size(14.dp)
                                         )
                                         Text(
                                             text = "Departing from: ${currentUserLocation.name}",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Medium,
-                                            color = Color.White
+                                            color = HeroColors.content
                                         )
                                         Icon(
                                             imageVector = Icons.Default.ArrowDropDown,
                                             contentDescription = null,
-                                            tint = Color.White,
+                                            tint = HeroColors.content,
                                             modifier = Modifier.size(16.dp)
                                         )
                                     }
@@ -533,22 +508,22 @@ fun LotsListScreen(
                             Icon(
                                 imageVector = Icons.Default.Navigation,
                                 contentDescription = null,
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Find Nearest Open Spot",
+                                text = stringResource(R.string.find_best_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                text = "Nearest lot with confirmed crowd reports",
+                                text = stringResource(R.string.find_best_subtitle),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = Alpha.HIGH)
                             )
                         }
 
@@ -627,9 +602,9 @@ fun LotsListScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "${filteredLots.size} BC Recreational Parking Lots",
+                            text = pluralStringResource(R.plurals.lots_count, filteredLots.size, filteredLots.size),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -647,7 +622,7 @@ fun LotsListScreen(
                                     modifier = Modifier
                                         .size(6.dp)
                                         .clip(RoundedCornerShape(3.dp))
-                                        .background(Color(0xFF10B981))
+                                        .background(BCParkSpotColors.semantic.positive.accent)
                                 )
                                 Text(
                                     text = "Live Sync",
@@ -747,8 +722,8 @@ fun ListMapToggle(
 ) {
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = Alpha.HALF),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = Alpha.SUBTLE)),
         modifier = modifier
     ) {
         Row(
@@ -771,13 +746,13 @@ fun ListMapToggle(
                         imageVector = Icons.Default.FormatListBulleted,
                         contentDescription = "List Mode",
                         modifier = Modifier.size(14.dp),
-                        tint = if (viewMode == ExploreViewMode.LIST) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = if (viewMode == ExploreViewMode.LIST) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "List",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (viewMode == ExploreViewMode.LIST) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (viewMode == ExploreViewMode.LIST) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -798,13 +773,13 @@ fun ListMapToggle(
                         imageVector = Icons.Default.Map,
                         contentDescription = "Map Mode",
                         modifier = Modifier.size(14.dp),
-                        tint = if (viewMode == ExploreViewMode.MAP) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = if (viewMode == ExploreViewMode.MAP) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "Map",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (viewMode == ExploreViewMode.MAP) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (viewMode == ExploreViewMode.MAP) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

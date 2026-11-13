@@ -1,5 +1,6 @@
 package ca.bcparkspot.app.ui.screens
 
+import ca.bcparkspot.app.ui.theme.Alpha
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
@@ -82,7 +83,7 @@ fun BCPassInfoScreen(
                     Text(
                         text = "Passes become available at 7:00 AM two days before your planned visit. Vehicle passes cover all passengers in one car.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = Alpha.NEAR_OPAQUE)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
@@ -176,7 +177,7 @@ private fun ParkPassRow(parkName: String, region: String, rule: String) {
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = Alpha.SUBTLE))
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -196,7 +197,7 @@ private fun ParkPassRow(parkName: String, region: String, rule: String) {
 private fun TipCard(title: String, desc: String) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = Alpha.HALF),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(

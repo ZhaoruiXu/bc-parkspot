@@ -2,70 +2,116 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuthenticated() {
+    // Shared limits. Each function mirrors a Kotlin constant of the same meaning;
+    // RulesConstantsTest fails if any value here differs from the app.
+    function reportValiditySeconds() { return 10800; }
+    function clockSkewSeconds() { return 300; }
+    function reportReadWindowSeconds() { return 12000; }
+    function maxIdLength() { return 100; }
+    function maxNameLength() { return 200; }
+    function maxRegionLength() { return 100; }
+    function maxNotesLength() { return 500; }
+    function maxStallLength() { return 100; }
+    function maxReporterNameLength() { return 100; }
+    function minCommentLength() { return 3; }
+    function maxCommentLength() { return 500; }
+    function maxSpotsEstimate() { return 5000; }
+    function reportableStatuses() { return ['AVAILABLE', 'FILLING_FAST', 'FULL', 'CLOSED']; }
+    function reportIdPattern() { return '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'; }
+
+    function signedIn() {
       return request.auth != null;
     }
 
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return signedIn() && request.auth.uid == userId;
     }
 
     function incoming() {
       return request.resource.data;
     }
 
-    function isValidSavedLot(data) {
-      return data.lotId is string && data.lotId.size() > 0 && data.lotId.size() <= 100 &&
-             data.parkName is string && data.parkName.size() > 0 && data.parkName.size() <= 200 &&
-             data.lotName is string && data.lotName.size() > 0 && data.lotName.size() <= 200 &&
-             data.region is string && data.region.size() > 0 && data.region.size() <= 100 &&
-             (!('userNotes' in data) || (data.userNotes is string && data.userNotes.size() <= 500)) &&
-             data.savedAt is timestamp && data.savedAt <= request.time;
+    function text(value, maxLength) {
+      return value is string && value.size() <= maxLength;
+    }
+
+    function nonEmptyText(value, maxLength) {
+      return text(value, maxLength) && value.size() > 0;
+    }
+
+    // Offline changes upload later, so there is no lower bound; the upper bound only allows for clock skew.
+    function notInFuture(value) {
+      return value is timestamp && value <= request.time + duration.value(clockSkewSeconds(), 's');
+    }
+
+    function isValidSavedLot(data, lotId) {
+      return data.keys().hasOnly(['lotId', 'parkName', 'lotName', 'region', 'userNotes', 'savedAt', 'updatedAt', 'deleted']) &&
+             data.lotId == lotId && nonEmptyText(data.lotId, maxIdLength()) &&
+             nonEmptyText(data.parkName, maxNameLength()) &&
+             nonEmptyText(data.lotName, maxNameLength()) &&
+             nonEmptyText(data.region, maxRegionLength()) &&
+             text(data.userNotes, maxNotesLength()) &&
+             notInFuture(data.savedAt) &&
+             notInFuture(data.updatedAt) &&
+             data.deleted is bool;
     }
 
     function isValidParkedVehicle(data) {
-      return data.parkName is string && data.parkName.size() > 0 && data.parkName.size() <= 200 &&
-             data.lotName is string && data.lotName.size() > 0 && data.lotName.size() <= 200 &&
-             data.latitude is number && data.latitude >= -90.0 && data.latitude <= 90.0 &&
-             data.longitude is number && data.longitude >= -180.0 && data.longitude <= 180.0 &&
-             (!('stallNumber' in data) || (data.stallNumber is string && data.stallNumber.size() <= 100)) &&
-             (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
-             (!('isExactGpsLocation' in data) || (data.isExactGpsLocation is bool)) &&
-             data.parkedAt is timestamp && data.parkedAt <= request.time;
+      return data.keys().hasOnly(['parkName', 'lotName', 'latitude', 'longitude', 'stallNumber', 'notes',
+                                  'isExactGpsLocation', 'parkedAt', 'updatedAt', 'deleted']) &&
+             nonEmptyText(data.parkName, maxNameLength()) &&
+             nonEmptyText(data.lotName, maxNameLength()) &&
+             data.latitude is number && data.latitude >= -90 && data.latitude <= 90 &&
+             data.longitude is number && data.longitude >= -180 && data.longitude <= 180 &&
+             text(data.stallNumber, maxStallLength()) &&
+             text(data.notes, maxNotesLength()) &&
+             data.isExactGpsLocation is bool &&
+             notInFuture(data.parkedAt) &&
+             notInFuture(data.updatedAt) &&
+             data.deleted is bool;
     }
 
-    function isValidCommunityReport(data) {
-      return data.userId is string && data.userId == request.auth.uid &&
-             data.reporterName is string && data.reporterName.size() > 0 && data.reporterName.size() <= 100 &&
-             data.lotId is string && data.lotId.size() > 0 && data.lotId.size() <= 100 &&
-             data.parkName is string && data.parkName.size() > 0 && data.parkName.size() <= 200 &&
-             data.status in ['AVAILABLE', 'FILLING_FAST', 'FULL', 'CLOSED'] &&
-             data.comment is string && data.comment.trim().size() >= 3 && data.comment.size() <= 500 &&
-             (!('spotsEstimate' in data) || data.spotsEstimate == null || (data.spotsEstimate is int && data.spotsEstimate >= 0 && data.spotsEstimate <= 5000)) &&
-             data.createdAt is timestamp && data.createdAt <= request.time;
+    function isValidReport(data, reportId) {
+      return reportId.matches(reportIdPattern()) &&
+             data.keys().hasOnly(['userId', 'reporterName', 'lotId', 'parkName', 'status', 'comment',
+                                  'spotsEstimate', 'observedAt', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             nonEmptyText(data.reporterName, maxReporterNameLength()) &&
+             nonEmptyText(data.lotId, maxIdLength()) &&
+             nonEmptyText(data.parkName, maxNameLength()) &&
+             data.status in reportableStatuses() &&
+             data.comment is string && data.comment.trim().size() >= minCommentLength() &&
+             data.comment.size() <= maxCommentLength() &&
+             (!('spotsEstimate' in data) || (data.spotsEstimate is int && data.spotsEstimate >= 0 &&
+                                             data.spotsEstimate <= maxSpotsEstimate())) &&
+             data.observedAt is timestamp &&
+             data.observedAt >= request.time - duration.value(reportValiditySeconds(), 's') &&
+             data.observedAt <= request.time + duration.value(clockSkewSeconds(), 's') &&
+             data.createdAt == request.time;
     }
 
-    // Per-user saved parking lots
     match /users/{userId}/savedLots/{lotId} {
       allow read, delete: if isOwner(userId);
-      allow create, update: if isOwner(userId) && isValidSavedLot(incoming());
+      allow create, update: if isOwner(userId) && isValidSavedLot(incoming(), lotId);
     }
 
-    // Per-user pinned vehicle location
     match /users/{userId}/parkedVehicles/{vehicleId} {
       allow read, delete: if isOwner(userId);
-      allow create, update: if isOwner(userId) && isValidParkedVehicle(incoming());
+      allow create, update: if isOwner(userId) && vehicleId == 'current' && isValidParkedVehicle(incoming());
     }
 
-    // Community crowdsourced live reports
+    // Reports are create-only. Anyone signed in reads recent ones; older ones only their author can see,
+    // so the feed exposes no long-term history of where a person has been.
     match /communityReports/{reportId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && incoming().userId == request.auth.uid && isValidCommunityReport(incoming());
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidCommunityReport(incoming());
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.observedAt >= request.time - duration.value(reportReadWindowSeconds(), 's')
+      );
+      allow create: if signedIn() && isValidReport(incoming(), reportId);
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
     }
 
-    // Default deny
     match /{document=**} {
       allow read, write: if false;
     }

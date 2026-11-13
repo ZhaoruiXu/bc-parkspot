@@ -1,5 +1,10 @@
 package ca.bcparkspot.app.model
 
+import ca.bcparkspot.app.domain.BC_TIME_ZONE
+import ca.bcparkspot.app.domain.Prediction
+
+import ca.bcparkspot.app.domain.LotState
+import ca.bcparkspot.app.domain.confirmedStatus
 import java.time.LocalDate
 import java.time.MonthDay
 
@@ -130,38 +135,13 @@ data class ParkClosure(
     }
 }
 
-enum class CrowdFreshness {
-    ACTIVE,   // Within 90 minutes
-    STALE,    // 90 minutes to 180 minutes (3 hours)
-    EXPIRED   // Over 180 minutes (fallback to guidebook baseline)
-}
-
-data class CrowdConsensus(
-    val lotId: String,
-    val status: AvailabilityStatus,
-    val freshness: CrowdFreshness,
-    val distinctHikerCount: Int,
-    val latestReportMinutesAgo: Long,
-    val latestComment: String? = null,
-    val spotsEstimate: Int? = null
+data class CrowdSummary(
+    val state: LotState = LotState.NoRecentReports,
+    val latestComment: String? = null
 ) {
-    val displaySummary: String
-        get() = when {
-            freshness == CrowdFreshness.EXPIRED || status == AvailabilityStatus.UNKNOWN -> {
-                if (distinctHikerCount == 1) {
-                    "Guidebook Baseline (1 report - quorum of 2 required to confirm)"
-                } else {
-                    "Guidebook Baseline (No recent confirmed crowd reports)"
-                }
-            }
-            freshness == CrowdFreshness.ACTIVE -> {
-                "Hikers confirm ${status.label} ($distinctHikerCount hikers • ${latestReportMinutesAgo}m ago)"
-            }
-            freshness == CrowdFreshness.STALE -> {
-                "Likely ${status.label} ($distinctHikerCount hikers • reported ${latestReportMinutesAgo}m ago • may have changed)"
-            }
-            else -> "Guidebook Baseline"
-        }
+    companion object {
+        val NONE = CrowdSummary()
+    }
 }
 
 enum class ParkingFeeType(val label: String) {
@@ -215,25 +195,20 @@ data class ParkingLot(
     val proTips: String = "",
     val sourceUrl: String = "https://bcparks.ca/reservations/day-use-passes/",
     val verifiedAt: String? = null,
-    val crowdConsensus: CrowdConsensus? = null
+    val crowd: CrowdSummary = CrowdSummary.NONE,
+    /** What public sources and park rules say about the lot now; shown only while no hiker has reported on it. */
+    val prediction: Prediction? = null
 ) {
     val effectiveStatus: AvailabilityStatus
-        get() {
-            val consensus = crowdConsensus ?: return AvailabilityStatus.UNKNOWN
-            return if (consensus.freshness == CrowdFreshness.EXPIRED) {
-                AvailabilityStatus.UNKNOWN
-            } else {
-                consensus.status
-            }
-        }
+        get() = crowd.state.confirmedStatus
 
-    fun getActiveClosure(today: LocalDate = LocalDate.now()): ParkClosure? {
+    fun getActiveClosure(today: LocalDate = LocalDate.now(BC_TIME_ZONE)): ParkClosure? {
         return closures.firstOrNull { it.isClosed(today) }
     }
 
     fun getPassState(
-        today: LocalDate = LocalDate.now(),
-        time: java.time.LocalTime = java.time.LocalTime.now()
+        today: LocalDate = LocalDate.now(BC_TIME_ZONE),
+        time: java.time.LocalTime = java.time.LocalTime.now(BC_TIME_ZONE)
     ): PassRequirementStatus {
         if (!isDayUsePassRequired) return PassRequirementStatus.NOT_REQUIRED
         if (getActiveClosure(today) != null) return PassRequirementStatus.NOT_REQUIRED // Park is closed
@@ -250,8 +225,8 @@ data class ParkingLot(
     }
 
     fun isPassRequiredToday(
-        today: LocalDate = LocalDate.now(),
-        time: java.time.LocalTime = java.time.LocalTime.now()
+        today: LocalDate = LocalDate.now(BC_TIME_ZONE),
+        time: java.time.LocalTime = java.time.LocalTime.now(BC_TIME_ZONE)
     ): Boolean {
         return getPassState(today, time) == PassRequirementStatus.REQUIRED
     }
@@ -271,12 +246,10 @@ data class CommunityReport(
     val userId: String = "",
     val lotId: String,
     val reporterName: String,
-    val minutesAgo: Int,
     val statusReported: AvailabilityStatus,
     val comment: String,
     val spotsEstimate: Int? = null,
-    val timestampMs: Long = System.currentTimeMillis(),
-    val isPendingSync: Boolean = false
+    val timestampMs: Long
 )
 
 data class UserLocation(

@@ -1,5 +1,7 @@
 package ca.bcparkspot.app.ui.map
 
+import ca.bcparkspot.app.ui.theme.BCParkSpotColors
+import ca.bcparkspot.app.ui.theme.MapColors
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
@@ -38,6 +40,9 @@ import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import androidx.compose.ui.graphics.luminance
+import ca.bcparkspot.app.domain.LotState
+import ca.bcparkspot.app.ui.prediction.PredictionRow
 
 @Composable
 fun ExploreMapView(
@@ -95,6 +100,20 @@ fun ExploreMapView(
     }
 
     var maplibreMapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
+    val darkMap = MaterialTheme.colorScheme.background.luminance() < MapTheme.DARK_LUMINANCE_THRESHOLD
+    var styledDark by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(darkMap, maplibreMapInstance) {
+        val map = maplibreMapInstance ?: return@LaunchedEffect
+        if (styledDark != null && styledDark != darkMap) {
+            styledDark = darkMap
+            // A loaded style applies its own default view, so the user's view is kept across the switch.
+            val keptCamera = map.cameraPosition
+            map.setStyle(Style.Builder().fromUri(mapStyleUrl(darkMap))) { style ->
+                map.cameraPosition = keptCamera
+                tintMapStyle(style, darkMap)
+            }
+        }
+    }
     var activeMarkerMap by remember { mutableStateOf<Map<Marker, ParkingLot>>(emptyMap()) }
     var userLocationMarker by remember { mutableStateOf<Marker?>(null) }
 
@@ -319,24 +338,23 @@ fun ExploreMapView(
                             getMapAsync { map ->
                                 maplibreMapInstance = map
                                 try {
+                                    // Camera and pin taps do not depend on the remote style, so they work even if it fails to load.
+                                    val initialCamera = CameraPosition.Builder()
+                                        .target(LatLng(ParkingMapConstants.INITIAL_CAMERA_LATITUDE, ParkingMapConstants.INITIAL_CAMERA_LONGITUDE))
+                                        .zoom(ParkingMapConstants.INITIAL_CAMERA_ZOOM)
+                                        .build()
+                                    map.cameraPosition = initialCamera
+                                    map.setOnMarkerClickListener { marker ->
+                                        activeMarkerMap[marker]?.let(onPinTapped)
+                                        true
+                                    }
+                                    styledDark = darkMap
                                     map.setStyle(
-                                        Style.Builder().fromJson(ParkingMapConstants.OPENSTREETMAP_RASTER_STYLE_JSON)
-                                    ) { _ ->
-                                        val initialPos = CameraPosition.Builder()
-                                            .target(LatLng(ParkingMapConstants.INITIAL_CAMERA_LATITUDE, ParkingMapConstants.INITIAL_CAMERA_LONGITUDE))
-                                            .zoom(ParkingMapConstants.INITIAL_CAMERA_ZOOM)
-                                            .build()
-                                        map.cameraPosition = initialPos
-
-                                        // Pin tap handler: ONLY sets selectedMapLot without opening details
-                                        map.setOnMarkerClickListener { marker ->
-                                            val clickedLot = activeMarkerMap[marker]
-                                            if (clickedLot != null) {
-                                                onPinTapped(clickedLot)
-                                            }
-                                            true
-                                        }
-
+                                        Style.Builder().fromUri(mapStyleUrl(darkMap))
+                                    ) { style ->
+                                        // A loaded style applies its own default view, so the start view is set again.
+                                        map.cameraPosition = initialCamera
+                                        tintMapStyle(style, darkMap)
                                         updateMapPins(map)
                                     }
                                 } catch (e: Throwable) {
@@ -524,16 +542,17 @@ fun ExploreMapView(
                     .padding(
                         start = ParkingMapConstants.MAP_ATTRIBUTION_PADDING_START,
                         top = ParkingMapConstants.MAP_ATTRIBUTION_PADDING_TOP
-                    ),
+                    )
+                    .widthIn(max = ParkingMapConstants.MAP_ATTRIBUTION_MAX_WIDTH),
                 shape = RoundedCornerShape(ParkingMapConstants.MAP_ATTRIBUTION_CORNER_RADIUS),
-                color = Color.White.copy(alpha = ParkingMapConstants.MAP_ATTRIBUTION_ALPHA),
-                border = BorderStroke(ParkingMapConstants.MAP_ATTRIBUTION_BORDER_WIDTH, ParkingMapConstants.COLOR_MAP_BORDER_NEUTRAL)
+                color = MaterialTheme.colorScheme.surface.copy(alpha = ParkingMapConstants.MAP_ATTRIBUTION_ALPHA),
+                border = BorderStroke(ParkingMapConstants.MAP_ATTRIBUTION_BORDER_WIDTH, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Text(
                     text = ParkingMapConstants.OSM_ATTRIBUTION_TEXT,
                     fontSize = ParkingMapConstants.MAP_ATTRIBUTION_FONT_SIZE,
                     fontWeight = FontWeight.Medium,
-                    color = Color(ParkingMapConstants.COLOR_PASS_INACTIVE_TEXT),
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(
                         horizontal = ParkingMapConstants.MAP_ATTRIBUTION_PADDING_HORIZONTAL,
                         vertical = ParkingMapConstants.MAP_ATTRIBUTION_PADDING_VERTICAL
@@ -648,19 +667,14 @@ private fun MapSelectedLotCard(
                         if (lot.isDayUsePassRequired) "Off-Season (No Pass)" else "No Pass Needed"
                     }
                 }
+                val passChipTone = if (passState == PassRequirementStatus.REQUIRED) BCParkSpotColors.semantic.caution else BCParkSpotColors.semantic.neutral
                 Surface(
                     modifier = Modifier.align(Alignment.CenterVertically),
                     shape = RoundedCornerShape(ParkingMapConstants.MAP_PASS_BADGE_CORNER_RADIUS),
-                    color = when (passState) {
-                        PassRequirementStatus.REQUIRED -> Color(ParkingMapConstants.COLOR_PASS_ACTIVE_CONTAINER)
-                        else -> Color(ParkingMapConstants.COLOR_PASS_INACTIVE_CONTAINER)
-                    },
+                    color = passChipTone.container,
                     border = BorderStroke(
                         ParkingMapConstants.MAP_PASS_BADGE_BORDER_WIDTH,
-                        when (passState) {
-                            PassRequirementStatus.REQUIRED -> Color(ParkingMapConstants.COLOR_PASS_ACTIVE_TEXT).copy(alpha = ParkingMapConstants.MAP_PASS_BADGE_BORDER_ALPHA)
-                            else -> ParkingMapConstants.COLOR_MAP_BORDER_NEUTRAL
-                        }
+                        if (passState == PassRequirementStatus.REQUIRED) passChipTone.accent else MaterialTheme.colorScheme.outlineVariant
                     )
                 ) {
                     Row(
@@ -679,10 +693,7 @@ private fun MapSelectedLotCard(
                             },
                             contentDescription = null,
                             modifier = Modifier.size(ParkingMapConstants.MAP_PASS_BADGE_ICON_SIZE),
-                            tint = when (passState) {
-                                PassRequirementStatus.REQUIRED -> Color(ParkingMapConstants.COLOR_PASS_ACTIVE_TEXT)
-                                else -> Color(ParkingMapConstants.COLOR_PASS_INACTIVE_TEXT)
-                            }
+                            tint = passChipTone.onContainer
                         )
                         Text(
                             text = passLabel,
@@ -690,14 +701,16 @@ private fun MapSelectedLotCard(
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             softWrap = false,
-                            color = when (passState) {
-                                PassRequirementStatus.REQUIRED -> Color(ParkingMapConstants.COLOR_PASS_ACTIVE_TEXT)
-                                else -> Color(ParkingMapConstants.COLOR_PASS_INACTIVE_TEXT)
-                            }
+                            color = passChipTone.onContainer
                         )
                     }
                 }
             }
+            val prediction = lot.prediction
+            if (prediction != null && lot.crowd.state == LotState.NoRecentReports) {
+                PredictionRow(prediction)
+            }
+
 
             // Explanatory detail when lot has seasonal pass rules
             if (lot.isDayUsePassRequired && lot.getPassState() == PassRequirementStatus.NOT_REQUIRED) {

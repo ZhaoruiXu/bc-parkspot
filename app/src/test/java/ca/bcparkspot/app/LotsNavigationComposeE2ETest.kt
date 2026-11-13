@@ -12,6 +12,8 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import org.junit.Before
 import org.junit.Rule
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -57,8 +59,15 @@ class LotsNavigationComposeE2ETest {
         // 2. Click "Find Nearest Open Spot" when lots are in initial baseline unknown status
         composeTestRule.onNodeWithTag("hero_nearest_open_button").performClick()
 
-        // Verify that without confirmed open quorum, the app stays on the list screen and does not navigate
-        composeTestRule.onNodeWithTag("lots_list_screen").assertIsDisplayed()
+        // Without confirmed reports it still routes to an unreported best bet (lots without published gate hours are
+        // reachable at any hour) and never calls it a confirmed open spot
+        composeTestRule.onNodeWithTag("route_navigation_screen").assertIsDisplayed()
+        val state = viewModel.uiState.value
+        assertNotNull(state.activeNavigationRoute)
+        val notice = state.userNotification.orEmpty()
+        assertTrue(notice, notice.startsWith("No confirmed open spots."))
+        composeTestRule.onNodeWithTag("nav_back_button").performClick()
+        composeTestRule.runOnUiThread { viewModel.selectLot(null) }
 
         // 3. Establish confirmed crowd consensus with quorum (>= 2 distinct users)
         val now = System.currentTimeMillis()
@@ -69,7 +78,6 @@ class LotsNavigationComposeE2ETest {
                     userId = "user_1",
                     lotId = "whytecliff_park_lot",
                     reporterName = "Hiker 1",
-                    minutesAgo = 5,
                     statusReported = ca.bcparkspot.app.model.AvailabilityStatus.AVAILABLE,
                     comment = "Lots of parking open at Whytecliff",
                     spotsEstimate = 40,
@@ -80,7 +88,6 @@ class LotsNavigationComposeE2ETest {
                     userId = "user_2",
                     lotId = "whytecliff_park_lot",
                     reporterName = "Hiker 2",
-                    minutesAgo = 10,
                     statusReported = ca.bcparkspot.app.model.AvailabilityStatus.AVAILABLE,
                     comment = "Plenty of spots",
                     spotsEstimate = 35,

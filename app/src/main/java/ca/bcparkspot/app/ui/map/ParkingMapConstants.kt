@@ -6,16 +6,42 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ca.bcparkspot.app.model.AvailabilityStatus
+import ca.bcparkspot.app.ui.theme.MapColors
 
 /**
  * Named constants for Map mode styling, dimensions, camera settings, and pin colors.
  * Hard rule: all numerical dimensions, delays, and colors are strictly named constants.
  */
 object ParkingMapConstants {
-    // Pin dimensions (in density-independent pixels) - reduced from 36 to 28 to prevent overlaps
-    const val PIN_SIZE_DP: Float = 28f
+    // Teardrop pin: a round head carrying the mountain mark, with a point at the lot's exact spot
+    const val PIN_WIDTH_DP: Float = 34f
+    const val PIN_HEIGHT_DP: Float = 44f
     const val PIN_STROKE_WIDTH_DP: Float = 2.5f
-    const val PIN_INNER_ICON_SIZE_DP: Float = 14f
+    const val PIN_HALO_WIDTH_DP: Float = 1f
+    const val PIN_SHADOW_BLUR_DP: Float = 3f
+    const val PIN_SHADOW_OFFSET_DP: Float = 1.5f
+    /** Where the head's sides meet the point, as a fraction of the head radius. */
+    const val PIN_TAIL_SPREAD: Float = 0.62f
+    const val PIN_TAIL_START: Float = 0.78f
+    /** The mountain mark inside the head, as fractions of the head radius from its centre. */
+    const val MOUNTAIN_HALF_WIDTH: Float = 0.62f
+    const val MOUNTAIN_BASE: Float = 0.38f
+    const val MOUNTAIN_MAIN_PEAK_X: Float = -0.14f
+    const val MOUNTAIN_MAIN_PEAK_Y: Float = -0.5f
+    const val MOUNTAIN_VALLEY_X: Float = 0.12f
+    const val MOUNTAIN_VALLEY_Y: Float = -0.06f
+    const val MOUNTAIN_SIDE_PEAK_X: Float = 0.32f
+    const val MOUNTAIN_SIDE_PEAK_Y: Float = -0.26f
+    /** The status badge on the head's upper right, sized and placed relative to the head radius. */
+    const val BADGE_RADIUS: Float = 0.5f
+    const val BADGE_OFFSET: Float = 0.72f
+    const val BADGE_GLYPH_SIZE_DP: Float = 10f
+    const val PIN_GLYPH_AVAILABLE = "\u2713"
+    const val PIN_GLYPH_FILLING_FAST = "!"
+    const val PIN_GLYPH_FULL = "\u00D7"
+    const val PIN_GLYPH_CLOSED = "\u2212"
+    /** A lot nobody has reported on shows the bare mountain mark, no badge. */
+    const val PIN_GLYPH_UNKNOWN = ""
     const val USER_PIN_SIZE_DP: Float = 18f
     const val USER_PIN_STROKE_WIDTH_DP: Float = 3f
 
@@ -28,11 +54,12 @@ object ParkingMapConstants {
     const val SINGLE_LOT_ZOOM: Double = 11.5
     val MAP_CONTROL_BUTTON_SIZE_DP: Dp = 38.dp
     const val MAP_SURFACE_ALPHA: Float = 0.95f
-    val COLOR_MAP_BORDER_NEUTRAL: Color = Color(0xFFCBD5E1)
     val HERO_BANNER_HEIGHT_DP: Dp = 210.dp
 
     // Attribution styling
     val MAP_ATTRIBUTION_PADDING_START: Dp = 12.dp
+    /** Narrow enough to wrap beside the lot-count chip at the right of the map. */
+    val MAP_ATTRIBUTION_MAX_WIDTH = 200.dp
     val MAP_ATTRIBUTION_PADDING_TOP: Dp = 12.dp
     val MAP_ATTRIBUTION_CORNER_RADIUS: Dp = 4.dp
     val MAP_ATTRIBUTION_BORDER_WIDTH: Dp = 0.5.dp
@@ -88,7 +115,6 @@ object ParkingMapConstants {
     // Pass badge on map card
     val MAP_PASS_BADGE_CORNER_RADIUS: Dp = 12.dp
     val MAP_PASS_BADGE_BORDER_WIDTH: Dp = 0.5.dp
-    const val MAP_PASS_BADGE_BORDER_ALPHA: Float = 0.25f
     val MAP_PASS_BADGE_PADDING_HORIZONTAL: Dp = 8.dp
     val MAP_PASS_BADGE_PADDING_VERTICAL: Dp = 4.dp
     val MAP_PASS_BADGE_INNER_SPACING: Dp = 4.dp
@@ -109,25 +135,19 @@ object ParkingMapConstants {
 
     // Color definitions
     // AvailabilityStatus.AVAILABLE -> Green
-    const val COLOR_PIN_AVAILABLE: Int = 0xFF059669.toInt()
+    const val COLOR_PIN_AVAILABLE: Int = MapColors.PIN_AVAILABLE
     // AvailabilityStatus.FILLING_FAST -> Amber/Orange
-    const val COLOR_PIN_FILLING_FAST: Int = 0xFFD97706.toInt()
+    const val COLOR_PIN_FILLING_FAST: Int = MapColors.PIN_FILLING_FAST
     // AvailabilityStatus.FULL -> Red
-    const val COLOR_PIN_FULL: Int = 0xFFDC2626.toInt()
+    const val COLOR_PIN_FULL: Int = MapColors.PIN_FULL
     // AvailabilityStatus.CLOSED -> Dark Slate
-    const val COLOR_PIN_CLOSED: Int = 0xFF334155.toInt()
+    const val COLOR_PIN_CLOSED: Int = MapColors.PIN_CLOSED
     // AvailabilityStatus.UNKNOWN -> Neutral Grey
-    const val COLOR_PIN_UNKNOWN: Int = 0xFF94A3B8.toInt()
+    const val COLOR_PIN_UNKNOWN: Int = MapColors.PIN_UNKNOWN
 
     // Marker styling accents
-    const val COLOR_PIN_BORDER: Int = 0xFFFFFFFF.toInt()
-    const val COLOR_USER_LOCATION_PIN: Int = 0xFF2563EB.toInt() // Royal Blue
-
-    // Pass badge colors for map card
-    const val COLOR_PASS_ACTIVE_CONTAINER: Int = 0xFFFEF3C7.toInt()
-    const val COLOR_PASS_ACTIVE_TEXT: Int = 0xFF92400E.toInt()
-    const val COLOR_PASS_INACTIVE_CONTAINER: Int = 0xFFF1F5F9.toInt()
-    const val COLOR_PASS_INACTIVE_TEXT: Int = 0xFF475569.toInt()
+    const val COLOR_PIN_BORDER: Int = MapColors.PIN_BORDER
+    const val COLOR_USER_LOCATION_PIN: Int = MapColors.USER_LOCATION // Royal Blue
 
     // Map initial camera viewport centering across South Coast & Sea-to-Sky BC Parks
     const val INITIAL_CAMERA_LATITUDE: Double = 49.65
@@ -139,34 +159,16 @@ object ParkingMapConstants {
     const val MAP_UNAVAILABLE_OFFLINE_DESC: String =
         "Map tiles require an internet connection. Your trailheads list, filters, and offline guide are fully functional."
 
-    // OpenStreetMap attribution text visible directly on the map surface
-    const val OSM_ATTRIBUTION_TEXT: String = "© OpenStreetMap contributors"
+    // Attribution OpenFreeMap asks for, shown directly on the map surface
+    const val OSM_ATTRIBUTION_TEXT: String = "OpenFreeMap © OpenMapTiles Data from OpenStreetMap"
 
-    // Free OpenStreetMap Tile Style JSON (no API key required)
-    const val OPENSTREETMAP_RASTER_STYLE_JSON: String = """{
-  "version": 8,
-  "name": "OpenStreetMap",
-  "sources": {
-    "osm": {
-      "type": "raster",
-      "tiles": [
-        "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-      ],
-      "tileSize": 256,
-      "attribution": "© OpenStreetMap Contributors",
-      "maxzoom": 19
-    }
-  },
-  "layers": [
-    {
-      "id": "osm-tiles",
-      "type": "raster",
-      "source": "osm",
-      "minzoom": 0,
-      "maxzoom": 19
-    }
-  ]
-}"""
+    // OpenFreeMap vector styles: free, no API key and no usage limits (openfreemap.org)
+    const val MAP_STYLE_URL_LIGHT: String = "https://tiles.openfreemap.org/styles/positron"
+    const val MAP_STYLE_URL_DARK: String = "https://tiles.openfreemap.org/styles/dark"
+    /** Style layers re-tinted to the app palette; ids from the OpenFreeMap styles, absent ones are skipped. */
+    const val MAP_LAYER_LAND: String = "background"
+    val MAP_LAYERS_PARK: List<String> = listOf("park", "landuse_park", "landcover_wood")
+    const val MAP_LAYER_WATER: String = "water"
 }
 
 /**
@@ -177,7 +179,8 @@ data class StatusPinVisual(
     val colorArgb: Int,
     val hexColor: String,
     val isNeutralGrey: Boolean,
-    val label: String
+    val label: String,
+    val glyph: String
 )
 
 /**
@@ -193,6 +196,14 @@ fun mapStatusToPinVisual(status: AvailabilityStatus): StatusPinVisual {
         AvailabilityStatus.UNKNOWN -> ParkingMapConstants.COLOR_PIN_UNKNOWN
     }
 
+    val glyph = when (status) {
+        AvailabilityStatus.AVAILABLE -> ParkingMapConstants.PIN_GLYPH_AVAILABLE
+        AvailabilityStatus.FILLING_FAST -> ParkingMapConstants.PIN_GLYPH_FILLING_FAST
+        AvailabilityStatus.FULL -> ParkingMapConstants.PIN_GLYPH_FULL
+        AvailabilityStatus.CLOSED -> ParkingMapConstants.PIN_GLYPH_CLOSED
+        AvailabilityStatus.UNKNOWN -> ParkingMapConstants.PIN_GLYPH_UNKNOWN
+    }
+
     val hex = String.format("#%06X", (0xFFFFFF and colorArgb))
     val isGrey = (status == AvailabilityStatus.UNKNOWN)
 
@@ -201,6 +212,7 @@ fun mapStatusToPinVisual(status: AvailabilityStatus): StatusPinVisual {
         colorArgb = colorArgb,
         hexColor = hex,
         isNeutralGrey = isGrey,
-        label = status.label
+        label = status.label,
+        glyph = glyph
     )
 }

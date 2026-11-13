@@ -1,5 +1,20 @@
 package ca.bcparkspot.app
 
+import ca.bcparkspot.app.ui.theme.Spacing
+import ca.bcparkspot.app.ui.theme.Sizes
+import androidx.compose.material.icons.filled.Hiking
+import androidx.compose.ui.res.stringResource
+import ca.bcparkspot.app.ui.theme.resolveDarkTheme
+import ca.bcparkspot.app.ui.theme.ThemePreferenceStore
+import ca.bcparkspot.app.ui.theme.ThemePreference
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import ca.bcparkspot.app.ui.theme.SystemBarColors
+import ca.bcparkspot.app.ui.theme.windowBackgroundFor
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.activity.SystemBarStyle
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,12 +32,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.credentials.CredentialManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import ca.bcparkspot.app.auth.AuthManager
 import ca.bcparkspot.app.model.ParkingLot
-import ca.bcparkspot.app.ui.components.AuthDialog
+import ca.bcparkspot.app.ui.components.AccountPromptDialog
+import ca.bcparkspot.app.ui.components.AccountSheet
+import ca.bcparkspot.app.auth.clearGoogleCredentialState
+import ca.bcparkspot.app.auth.requestGoogleIdToken
+import androidx.compose.ui.platform.LocalContext
 import ca.bcparkspot.app.ui.components.CommunityReportDialog
 import ca.bcparkspot.app.ui.components.PrivacyPolicyDialog
 import ca.bcparkspot.app.ui.components.SaveCarSheet
@@ -42,6 +59,16 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: ParkingViewModel by viewModels()
 
+    override fun onStart() {
+        super.onStart()
+        AppGraph.from(this).cloud.setForeground(true)
+    }
+
+    override fun onStop() {
+        AppGraph.from(this).cloud.setForeground(false)
+        super.onStop()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -52,30 +79,41 @@ class MainActivity : ComponentActivity() {
             // Fail gracefully if running under JVM test environment
         }
 
-        // Silent auto-sign-in on app start
-        try {
-            val credentialManager = CredentialManager.create(this)
-            AuthManager.attemptAutoSignIn(
-                context = this,
-                credentialManager = credentialManager,
-                onAuthSuccess = { /* Automatically picked up by FirebaseAuth listener */ },
-                onUnauthenticated = { /* Retain local offline state */ },
-                scope = lifecycleScope
-            )
-        } catch (e: Throwable) {
-            // Fail gracefully if credential services are unavailable on device
-        }
+        val themeStore = ThemePreferenceStore(this)
+        val initialTheme = themeStore.load()
+        themeStore.applyToSystem(initialTheme)
 
         setContent {
-            BCParkSpotTheme {
-                MainAppRoot(viewModel = viewModel)
+            var themePreference by remember { mutableStateOf(initialTheme) }
+            val dark = resolveDarkTheme(themePreference, isSystemInDarkTheme())
+            DisposableEffect(dark) {
+                val transparent = Color.Transparent.toArgb()
+                val statusStyle = if (dark) SystemBarStyle.dark(transparent) else SystemBarStyle.light(transparent, transparent)
+                val navStyle = if (dark) SystemBarStyle.dark(transparent) else SystemBarStyle.light(transparent, SystemBarColors.lightIconsScrim.toArgb())
+                enableEdgeToEdge(statusBarStyle = statusStyle, navigationBarStyle = navStyle)
+                window.setBackgroundDrawable(ColorDrawable(windowBackgroundFor(dark).toArgb()))
+                onDispose {}
+            }
+            BCParkSpotTheme(preference = themePreference) {
+                MainAppRoot(
+                    viewModel = viewModel,
+                    themePreference = themePreference,
+                    onThemePreferenceChange = {
+                        themeStore.save(it)
+                        themePreference = it
+                    }
+                )
             }
         }
     }
 }
 
 @Composable
-fun MainAppRoot(viewModel: ParkingViewModel) {
+fun MainAppRoot(
+    viewModel: ParkingViewModel,
+    themePreference: ThemePreference = ThemePreference.SYSTEM,
+    onThemePreferenceChange: (ThemePreference) -> Unit = {}
+) {
     var selectedTab by remember { mutableStateOf(MainNavTab.EXPLORE) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val filteredLots by viewModel.filteredLots.collectAsStateWithLifecycle()
@@ -83,7 +121,10 @@ fun MainAppRoot(viewModel: ParkingViewModel) {
     val savedLots by viewModel.savedLots.collectAsStateWithLifecycle()
     val parkedCar by viewModel.parkedCar.collectAsStateWithLifecycle()
     val communityReports by viewModel.communityReports.collectAsStateWithLifecycle()
-    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+    val account by viewModel.account.collectAsStateWithLifecycle()
+    val prompt by viewModel.prompt.collectAsStateWithLifecycle()
+    val waitingReportIds by viewModel.waitingReportIds.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val userLocation by viewModel.currentUserLocation.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -92,7 +133,7 @@ fun MainAppRoot(viewModel: ParkingViewModel) {
     // Handle toast/notification
     LaunchedEffect(uiState.userNotification) {
         uiState.userNotification?.let { msg ->
-            snackbarHostState.showSnackbar(msg)
+            snackbarHostState.showSnackbar(msg, withDismissAction = true, duration = SnackbarDuration.Long)
             viewModel.dismissNotification()
         }
     }
@@ -158,6 +199,7 @@ fun MainAppRoot(viewModel: ParkingViewModel) {
                             lot = selectedLot,
                             isSaved = savedLots.any { it.lotId == selectedLot.id },
                             communityReports = communityReports,
+                            waitingReportIds = waitingReportIds,
                             onBack = { viewModel.selectLot(null) },
                             onNavigate = { viewModel.startNavigation(selectedLot) },
                             onFindNearestOpen = { viewModel.findNearestOpenSpot(selectedLot.parkId) },
@@ -188,6 +230,7 @@ fun MainAppRoot(viewModel: ParkingViewModel) {
                     if (activeRoute != null) {
                         RouteNavigationScreen(
                             route = activeRoute,
+                            destinationNow = allLots.firstOrNull { it.id == activeRoute.destinationLot.id } ?: activeRoute.destinationLot,
                             onBack = {
                                 viewModel.clearActiveRoute()
                                 selectedTab = MainNavTab.EXPLORE
@@ -209,25 +252,25 @@ fun MainAppRoot(viewModel: ParkingViewModel) {
                             horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
                         ) {
                             Icon(
-                                imageVector = Icons.Default.AltRoute,
+                                imageVector = Icons.Default.Hiking,
                                 contentDescription = null,
-                                modifier = Modifier.size(64.dp),
+                                modifier = Modifier.size(Sizes.emptyStateIcon),
                                 tint = MaterialTheme.colorScheme.primary
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(Spacing.lg))
                             Text(
-                                text = "No Active Parking Route",
+                                text = stringResource(R.string.route_empty_title),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(Spacing.sm))
                             Text(
-                                text = "Tap 'Navigate to Nearest Open Spot' or select any BC recreation lot to calculate driving routes and live capacity.",
+                                text = stringResource(R.string.route_empty_body),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
-                            Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(Spacing.xl))
                             Button(
                                 onClick = {
                                     viewModel.findNearestOpenSpot()
@@ -235,8 +278,8 @@ fun MainAppRoot(viewModel: ParkingViewModel) {
                                 modifier = Modifier.testTag("empty_route_find_nearest_button")
                             ) {
                                 Icon(imageVector = Icons.Default.Navigation, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Find Nearest Open Spot Now")
+                                Spacer(modifier = Modifier.width(Spacing.sm))
+                                Text(stringResource(R.string.route_empty_button))
                             }
                         }
                     }
@@ -269,29 +312,25 @@ fun MainAppRoot(viewModel: ParkingViewModel) {
                 }
             }
 
-            // Google Auth Dialog
             if (uiState.isAuthDialogVisible) {
-                AuthDialog(
-                    currentUser = currentUser,
+                AccountSheet(
+                    state = account,
+                    message = uiState.accountMessage,
+                    nowMs = System.currentTimeMillis(),
+                    themePreference = themePreference,
+                    onThemePreferenceChange = onThemePreferenceChange,
                     onDismiss = { viewModel.showAuthDialog(false) },
-                    onAuthSuccess = {
-                        viewModel.showAuthDialog(false)
-                    },
-                    onSignOutSuccess = {
-                        viewModel.showAuthDialog(false)
-                    },
-                    onOpenPrivacyPolicy = {
-                        viewModel.showPrivacyDialog(true)
-                    },
-                    onDeleteAccount = {
-                        viewModel.deleteUserAccountAndData(
-                            onSuccess = {
-                                viewModel.showAuthDialog(false)
-                            },
-                            onError = { /* notification handled in viewModel */ }
-                        )
-                    }
+                    onSignIn = { viewModel.signInWithGoogle { requestGoogleIdToken(context) } },
+                    onSignOut = { viewModel.signOut { clearGoogleCredentialState(context) } },
+                    onDeleteConfirmed = { viewModel.deleteMyData { requestGoogleIdToken(context) } },
+                    onRetryNotSynced = { viewModel.retryNotSynced() },
+                    onDiscardRejected = { viewModel.discardRejectedReports() },
+                    onOpenPrivacyPolicy = { viewModel.showPrivacyDialog(true) }
                 )
+            }
+
+            prompt?.let { pending ->
+                AccountPromptDialog(prompt = pending, policy = viewModel.policy, onAnswer = viewModel::answerPrompt)
             }
 
             // In-App Privacy Policy Dialog
@@ -310,7 +349,6 @@ fun MainAppRoot(viewModel: ParkingViewModel) {
                     onSubmit = { status, comment, spots ->
                         viewModel.submitCommunityReport(
                             lotId = currentLot.id,
-                            reporterName = currentUser?.displayName ?: "BC Hiker",
                             status = status,
                             comment = comment,
                             spots = spots

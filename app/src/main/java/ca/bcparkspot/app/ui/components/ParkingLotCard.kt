@@ -1,5 +1,7 @@
 package ca.bcparkspot.app.ui.components
 
+import ca.bcparkspot.app.ui.theme.BCParkSpotColors
+import ca.bcparkspot.app.ui.theme.Spacing
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -31,7 +33,7 @@ fun ParkingLotCard(
     onToggleSave: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val consensus = lot.crowdConsensus
+    val semantic = BCParkSpotColors.semantic
 
     Card(
         modifier = modifier
@@ -45,8 +47,8 @@ fun ParkingLotCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = BorderStroke(
             1.dp,
-            if (lot.effectiveStatus == AvailabilityStatus.FULL) Color(0xFFFCA5A5)
-            else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+            if (lot.effectiveStatus == AvailabilityStatus.FULL) semantic.negative.accent
+            else MaterialTheme.colorScheme.outlineVariant
         )
     ) {
         Column(
@@ -149,7 +151,7 @@ fun ParkingLotCard(
                     )
                 }
 
-                Text(text = "•", color = MaterialTheme.colorScheme.outline)
+                Text(text = "•", color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Icon(
@@ -166,7 +168,7 @@ fun ParkingLotCard(
                     )
                 }
 
-                Text(text = "•", color = MaterialTheme.colorScheme.outline)
+                Text(text = "•", color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 Text(
                     text = if (lot.totalSpots != null) "${lot.totalSpots} stalls" else "Trailhead (Quota per person)",
@@ -178,44 +180,7 @@ fun ParkingLotCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Honest Crowd Status Badge
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = when {
-                    consensus?.freshness == CrowdFreshness.ACTIVE && consensus.status == AvailabilityStatus.FULL -> Color(0xFFFEE2E2)
-                    consensus?.freshness == CrowdFreshness.ACTIVE && consensus.status == AvailabilityStatus.FILLING_FAST -> Color(0xFFFEF3C7)
-                    consensus?.freshness == CrowdFreshness.ACTIVE -> Color(0xFFDCFCE7)
-                    consensus?.freshness == CrowdFreshness.STALE -> Color(0xFFFFFBEB)
-                    else -> Color(0xFFF1F5F9)
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    val dotColor = when {
-                        consensus?.freshness == CrowdFreshness.ACTIVE && consensus.status == AvailabilityStatus.FULL -> Color(0xFFDC2626)
-                        consensus?.freshness == CrowdFreshness.ACTIVE && consensus.status == AvailabilityStatus.FILLING_FAST -> Color(0xFFD97706)
-                        consensus?.freshness == CrowdFreshness.ACTIVE -> Color(0xFF16A34A)
-                        consensus?.freshness == CrowdFreshness.STALE -> Color(0xFFB45309)
-                        else -> Color(0xFF64748B)
-                    }
-                    Icon(
-                        imageVector = Icons.Default.Circle,
-                        contentDescription = null,
-                        tint = dotColor,
-                        modifier = Modifier.size(10.dp)
-                    )
-                    Text(
-                        text = consensus?.displaySummary ?: "Guidebook Baseline • No recent crowd reports (3h)",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = dotColor
-                    )
-                }
-            }
+            LotStatusBlock(lot)
 
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -228,6 +193,7 @@ fun ParkingLotCard(
             ) {
                 // Seasonal Pass Tag
                 val passState = lot.getPassState()
+                val passChipTone = if (passState == PassRequirementStatus.REQUIRED) semantic.caution else semantic.neutral
                 val passLabel = when (passState) {
                     PassRequirementStatus.REQUIRED -> "Day-Pass Active"
                     PassRequirementStatus.UNKNOWN -> "Pass TBA"
@@ -237,10 +203,7 @@ fun ParkingLotCard(
                 }
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = when (passState) {
-                        PassRequirementStatus.REQUIRED -> Color(0xFFFEF3C7)
-                        else -> Color(0xFFF1F5F9)
-                    }
+                    color = passChipTone.container
                 ) {
                     Text(
                         text = passLabel,
@@ -249,17 +212,14 @@ fun ParkingLotCard(
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         softWrap = false,
-                        color = when (passState) {
-                            PassRequirementStatus.REQUIRED -> Color(0xFF92400E)
-                            else -> Color(0xFF475569)
-                        }
+                        color = passChipTone.onContainer
                     )
                 }
 
                 // Fee tag
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = Color(0xFFF1F5F9)
+                    color = semantic.neutral.container
                 ) {
                     Text(
                         text = lot.feeDescription.split("(")[0].trim(),
@@ -268,14 +228,14 @@ fun ParkingLotCard(
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         softWrap = false,
-                        color = Color(0xFF334155)
+                        color = semantic.neutral.onContainer
                     )
                 }
 
                 if (!lot.isDogFriendly) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = Color(0xFFFEE2E2)
+                        color = semantic.negative.container
                     ) {
                         Text(
                             text = "No Dogs",
@@ -284,7 +244,7 @@ fun ParkingLotCard(
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             softWrap = false,
-                            color = Color(0xFF991B1B)
+                            color = semantic.negative.onContainer
                         )
                     }
                 }
@@ -295,7 +255,7 @@ fun ParkingLotCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFEFF6FF),
+                    color = semantic.info.container,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -306,14 +266,14 @@ fun ParkingLotCard(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.AltRoute,
                             contentDescription = null,
-                            tint = Color(0xFF2563EB),
+                            tint = semantic.info.onContainer,
                             modifier = Modifier.size(14.dp)
                         )
                         Text(
                             text = "Overflow: ${lot.overflowLotName} (${lot.overflowDistanceKm} km)",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1D4ED8)
+                            color = semantic.info.onContainer
                         )
                     }
                 }

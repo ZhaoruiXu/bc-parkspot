@@ -1,5 +1,12 @@
 package ca.bcparkspot.app.ui.screens
 
+import ca.bcparkspot.app.domain.isConfirmedOpen
+import androidx.compose.ui.res.stringResource
+import ca.bcparkspot.app.R
+import ca.bcparkspot.app.ui.components.LotStatusBlock
+import ca.bcparkspot.app.ui.theme.Spacing
+import ca.bcparkspot.app.ui.theme.Alpha
+import ca.bcparkspot.app.ui.theme.BCParkSpotColors
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -31,6 +38,8 @@ import ca.bcparkspot.app.model.ParkingLot
 @Composable
 fun RouteNavigationScreen(
     route: NavigationRoute,
+    /** The destination as it stands now, so its report status and prediction stay current on this screen. */
+    destinationNow: ParkingLot,
     onBack: () -> Unit,
     onSelectAlternativeLot: (ParkingLot) -> Unit,
     onOpenSaveCarSheet: () -> Unit,
@@ -79,7 +88,7 @@ fun RouteNavigationScreen(
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = Alpha.HALF)
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -104,7 +113,19 @@ fun RouteNavigationScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(Spacing.md))
+                        if (!destinationNow.crowd.state.isConfirmedOpen()) {
+                            Text(
+                                text = stringResource(R.string.route_not_confirmed),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = BCParkSpotColors.semantic.caution.accent,
+                                modifier = Modifier.testTag("route_not_confirmed")
+                            )
+                            Spacer(modifier = Modifier.height(Spacing.sm))
+                        }
+                        LotStatusBlock(destinationNow)
+                        Spacer(modifier = Modifier.height(Spacing.md))
 
                         // Distance & Travel Stats
                         Row(
@@ -178,7 +199,7 @@ fun RouteNavigationScreen(
             item {
                 Card(
                     shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = Alpha.SUBTLE)),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -205,7 +226,7 @@ fun RouteNavigationScreen(
                         )
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = Alpha.MEDIUM)
                         ) {
                             Text(
                                 text = route.roadConditions,
@@ -224,8 +245,8 @@ fun RouteNavigationScreen(
                     if (destLot.cellSignal == CellSignal.NO_SERVICE || destLot.cellSignal == CellSignal.WEAK_CELL) {
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFFEF3C7),
-                            border = BorderStroke(1.dp, Color(0xFFF59E0B))
+                            color = BCParkSpotColors.semantic.caution.container,
+                            border = BorderStroke(1.dp, BCParkSpotColors.semantic.caution.accent)
                         ) {
                             Row(
                                 modifier = Modifier.padding(12.dp),
@@ -235,19 +256,19 @@ fun RouteNavigationScreen(
                                 Icon(
                                     imageVector = Icons.Default.SignalCellularConnectedNoInternet0Bar,
                                     contentDescription = "No Signal",
-                                    tint = Color(0xFFB45309)
+                                    tint = BCParkSpotColors.semantic.caution.onContainer
                                 )
                                 Column {
                                     Text(
                                         text = "Trailhead Cell Reception: ${destLot.cellSignal.label}",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp,
-                                        color = Color(0xFF92400E)
+                                        color = BCParkSpotColors.semantic.caution.onContainer
                                     )
                                     Text(
                                         text = "Cell coverage ends before reaching this lot. Download offline maps and pass tickets now.",
                                         fontSize = 11.sp,
-                                        color = Color(0xFF78350F)
+                                        color = BCParkSpotColors.semantic.caution.onContainer
                                     )
                                 }
                             }
@@ -257,7 +278,7 @@ fun RouteNavigationScreen(
                     // Gate Hours Notice
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFF1F5F9),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -313,7 +334,7 @@ fun RouteNavigationScreen(
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = Alpha.SUBTLE)),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onSelectAlternativeLot(altLot) }
@@ -330,7 +351,7 @@ fun RouteNavigationScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = "${altLot.parkName} • ${altLot.totalSpots} stalls",
+                                    text = altLot.totalSpots?.let { "${altLot.parkName} • $it stalls" } ?: altLot.parkName,
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

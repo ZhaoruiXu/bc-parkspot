@@ -1,5 +1,6 @@
 package ca.bcparkspot.app.ui.screens
 
+import ca.bcparkspot.app.ui.theme.Alpha
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -134,14 +135,14 @@ fun SavedLotsScreen(
                         Text(
                             text = parkedCar.parkName,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = Alpha.HIGH)
                         )
 
                         if (parkedCar.stallNumber.isNotBlank()) {
                             Spacer(modifier = Modifier.height(6.dp))
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = Alpha.HIGH)
                             ) {
                                 Text(
                                     text = "Stall: ${parkedCar.stallNumber}",
@@ -157,7 +158,7 @@ fun SavedLotsScreen(
                             Text(
                                 text = "Note: ${parkedCar.notes}",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = Alpha.NEAR_OPAQUE)
                             )
                         }
 
@@ -183,7 +184,7 @@ fun SavedLotsScreen(
                                 text = locationLabel,
                                 fontSize = 11.sp,
                                 fontWeight = if (parkedCar.isExactGpsLocation) FontWeight.Bold else FontWeight.Normal,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = Alpha.HIGHER)
                             )
                         }
 
@@ -199,7 +200,7 @@ fun SavedLotsScreen(
 
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = Alpha.NEAR_OPAQUE)
                             ) {
                                 Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
                                     Row(
@@ -249,8 +250,8 @@ fun SavedLotsScreen(
             } else {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = Alpha.HALF),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = Alpha.SUBTLE))
                 ) {
                     Row(
                         modifier = Modifier
@@ -329,7 +330,7 @@ fun SavedLotsScreen(
                         .clickable { fullLot?.let { onSelectLot(it) } },
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = Alpha.SUBTLE))
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Row(
